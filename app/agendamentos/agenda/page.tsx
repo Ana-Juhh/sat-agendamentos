@@ -61,7 +61,7 @@ export default function Agenda() {
   useEffect(() => {
     async function carregarAgenda() {
       const agendamentos =
-        await pb.collection('agendamentos').getFullList({
+        await pb.collection('agendamentos_tmp').getFullList({
           expand: 'usuario',
         })
 

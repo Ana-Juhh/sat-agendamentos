@@ -57,33 +57,35 @@ export default function LoginPage() {
       {/* Container principal */}
       <div className="max-w-7xl w-full mx-auto px-8 flex items-center justify-between">
         
+        
         {/* Left Side */}
         <div className="max-w-xl">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
+         <p className="text-3xl md:text-2xl font-semibold text-blue-600 mb-4 tracking-wide">
             Agendamento Satélite
-          </h1>
-          
-          <p className="text-4xl font-bold text-blue-600 mb-12 leading-snug">
+          </p>
+
+          <h1 className="text-5xl font-bold text-gray-900 leading-snug">
             Simplicidade para<br />
             focar no que importa:<br />
-            aprender.
-          </p>
+  <span className="text-blue-600">aprender.</span>
+</h1> <br></br>
 
           <GoogleSignInButton onClick={loginWithGoogle} />
         </div>
 
         {/* Right Side (esconde no celular) */}
-        <div className="relative hidden md:block">
+        <div className="relative hidden md:block overflow-visible">
           <div className="absolute -top-20 -right-20 w-96 h-96 bg-yellow-400 rounded-full opacity-30 blur-3xl"></div>
-          
-          <Image
-            src="/images/mascote.png"
-            alt="Mascote Satélite"
-            width={400}
-            height={400}
-            priority
-            className="object-contain"
-          />
+
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-[580px] h-auto object-contain"
+          >
+            <source src="/videos/mascote.mp4" type="video/mp4" />
+          </video>
         </div>
       </div>
     </div>

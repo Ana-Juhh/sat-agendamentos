@@ -1,0 +1,1 @@
+export const AG_COLLECTION = 'agendamentos_tmp' // <-- enquanto testa

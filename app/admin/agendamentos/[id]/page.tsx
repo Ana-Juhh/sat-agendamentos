@@ -159,11 +159,6 @@ export default function EditarAgendamentoAdmin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, role, id])
 
-  const donoTxt = useMemo(() => {
-    const u = ag?.expand?.usuario
-    if (!u) return ag?.usuario ? `ID: ${ag.usuario}` : '—'
-    return u.name || u.email || u.id
-  }, [ag])
 
   const opcoesClasse = turma ? TURMAS_CONFIG[turma] || [] : []
   const classeObrigatoria = opcoesClasse.length > 0
@@ -280,16 +275,20 @@ export default function EditarAgendamentoAdmin() {
           <div className="bg-white rounded-2xl shadow-sm p-6 space-y-6">
             <div className="text-sm text-gray-600">
               <div>
-                <b>Dono:</b> {donoTxt}
+                <b>Professor(a):</b>{' '}
+                {ag.expand?.usuario?.name || ag.expand?.usuario?.email || 'Usuário sem nome'}
               </div>
+
               <div>
                 <b>Status:</b>{' '}
                 <span className={ag.status === 'ativo' ? 'text-green-700' : 'text-red-700'}>
                   {ag.status}
                 </span>
               </div>
+
               <div>
-                <b>ID:</b> {ag.id}
+                <b>Turma:</b>{' '}
+                {ag.turma ? `${ag.turma}${ag.classe ? ` ${ag.classe}` : ''}` : '—'}
               </div>
             </div>
 

@@ -1,0 +1,1 @@
+export const ESPACOS_COLLECTION = "agendamentos_espacos";

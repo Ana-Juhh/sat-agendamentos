@@ -27,6 +27,10 @@ type Agendamento = {
   inicio: number
   fim: number
   status: 'ativo' | 'cancelado'
+  status_entrega?: 'pendente' | 'em_uso' | 'devolvido' | 'atrasado'
+  turma?: string
+  classe?: string
+  observacoes?: string
   expand?: {
     chromebooks?: Chromebook[]
     usuario?: User
@@ -57,12 +61,10 @@ export default function MeusAgendamentos() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [carregando, setCarregando] = useState(true)
 
-  // ✅ evita hydration mismatch: começamos "neutro"
   const [authReady, setAuthReady] = useState(false)
   const [usuarioId, setUsuarioId] = useState<string | null>(null)
   const [role, setRole] = useState<'admin' | 'professor' | null>(null)
 
-  // 1) pega auth SÓ no client
   useEffect(() => {
     const model: any = pb.authStore.model
     setUsuarioId(model?.id ?? null)
@@ -99,7 +101,6 @@ export default function MeusAgendamentos() {
     }
   }
 
-  // 2) só carrega quando auth estiver pronto
   useEffect(() => {
     if (!authReady) return
     carregar()
@@ -127,6 +128,36 @@ export default function MeusAgendamentos() {
     }
   }
 
+  async function marcarRetirado(id: string) {
+    try {
+      await pb.collection(AG_COLLECTION).update(id, { status_entrega: 'em_uso' })
+
+      setAgendamentos((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, status_entrega: 'em_uso' } : a
+        )
+      )
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao marcar como retirado.')
+    }
+  }
+
+  async function marcarDevolvido(id: string) {
+    try {
+      await pb.collection(AG_COLLECTION).update(id, { status_entrega: 'devolvido' })
+
+      setAgendamentos((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, status_entrega: 'devolvido' } : a
+        )
+      )
+    } catch (e) {
+      console.error(e)
+      alert('Erro ao marcar como devolvido.')
+    }
+  }
+
   function editarAgendamento(id: string) {
     router.push(`/admin/agendamentos/${id}`)
   }
@@ -135,8 +166,7 @@ export default function MeusAgendamentos() {
     <>
       <HeaderDashboard />
 
-      <main className="max-w-3xl mx-auto px-4 py-10">
-        {/* ✅ só renderiza o título depois do authReady (pra não dar mismatch) */}
+      <main className="max-w-5xl mx-auto px-4 py-10">
         <h1 className="text-3xl font-bold mb-8 text-center">
           {!authReady
             ? 'Carregando...'
@@ -168,43 +198,93 @@ export default function MeusAgendamentos() {
                         ? chromes.map((c) => c.codigo ?? c.id).join(', ')
                         : (a.chromebooks ?? []).join(', ')
 
-                    const dono = a.expand?.usuario
-                    const donoTxt =
-                      role === 'admin'
-                        ? `👤 ${dono?.name || dono?.email || a.usuario}`
-                        : ''
+                    const nomeUsuario =
+                      a.expand?.usuario?.name ||
+                      a.expand?.usuario?.email ||
+                      'Usuário sem nome'
+
+                    const turmaCompleta = a.turma
+                      ? `${a.turma}${a.classe ? ` ${a.classe}` : ''}`
+                      : 'Sem turma'
+
+                    const statusEntrega = a.status_entrega || 'pendente'
 
                     return (
                       <div
                         key={a.id}
-                        className="flex justify-between items-center p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition"
+                        className="flex justify-between items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition"
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           {role === 'admin' && (
-                            <p className="text-xs text-gray-500 mb-1 truncate">{donoTxt}</p>
+                            <p className="text-xs text-gray-500 mb-1 truncate">
+                              👤 {nomeUsuario}
+                            </p>
                           )}
 
                           <p className="font-semibold text-gray-900">
                             💻 {chromes.length || (a.chromebooks?.length ?? 0)} Chromebook(s)
                           </p>
 
-                          <p className="text-sm text-gray-700 mt-1 truncate">
+                          <p className="text-sm text-gray-700 mt-1 break-words">
                             {listaCodigos}
                           </p>
 
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-gray-600 mt-2">
+                            🎓 {turmaCompleta}
+                          </p>
+
+                          {a.observacoes && (
+                            <p className="text-sm text-gray-600 mt-1 break-words">
+                              📝 {a.observacoes}
+                            </p>
+                          )}
+
+                          <p className="text-sm text-gray-600 mt-2">
                             ⏰ {minutosParaHora(a.inicio)} – {minutosParaHora(a.fim)}
+                          </p>
+
+                          <p className="text-sm mt-2">
+                            Status entrega:{' '}
+                            <span
+                              className={
+                                statusEntrega === 'devolvido'
+                                  ? 'text-green-700 font-medium'
+                                  : statusEntrega === 'em_uso'
+                                    ? 'text-orange-600 font-medium'
+                                    : statusEntrega === 'atrasado'
+                                      ? 'text-red-600 font-medium'
+                                      : 'text-gray-500 font-medium'
+                              }
+                            >
+                              {statusEntrega}
+                            </span>
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
                           {role === 'admin' && (
-                            <button
-                              onClick={() => editarAgendamento(a.id)}
-                              className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition"
-                            >
-                              Editar
-                            </button>
+                            <>
+                              <button
+                                onClick={() => editarAgendamento(a.id)}
+                                className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition"
+                              >
+                                Editar
+                              </button>
+
+                              <button
+                                onClick={() => marcarRetirado(a.id)}
+                                className="text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg transition"
+                              >
+                                Retirado
+                              </button>
+
+                              <button
+                                onClick={() => marcarDevolvido(a.id)}
+                                className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
+                              >
+                                Devolvido
+                              </button>
+                            </>
                           )}
 
                           <button

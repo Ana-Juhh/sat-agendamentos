@@ -370,10 +370,6 @@ export default function DashboardView() {
 
                 <AvatarGroup />
 
-                <button className="rounded-full border border-white/10 bg-white/[0.04] px-6 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-slate-300">
-                  Conectar ClickUp
-                </button>
-
                 <button className="rounded-full border border-white/10 bg-white/[0.04] p-3 text-slate-300">
                   <Bell className="h-5 w-5" />
                 </button>

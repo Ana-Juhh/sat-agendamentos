@@ -73,33 +73,40 @@ export default function MeusAgendamentos() {
   }, [])
 
   async function carregar() {
-    try {
-      setCarregando(true)
+  try {
+    setCarregando(true)
 
-      if (!pb.authStore.isValid || !usuarioId) {
-        setAgendamentos([])
-        return
-      }
-
-      const filter =
-        role === 'admin'
-          ? `status = "ativo"`
-          : `usuario = "${usuarioId}" && status = "ativo"`
-
-      const dados = await pb.collection(AG_COLLECTION).getFullList<Agendamento>({
-        filter,
-        sort: 'data,inicio',
-        expand: 'chromebooks,usuario',
-      })
-
-      setAgendamentos(dados)
-    } catch (e) {
-      console.error(e)
-      alert('Erro ao carregar agendamentos')
-    } finally {
-      setCarregando(false)
+    if (!pb.authStore.isValid || !usuarioId) {
+      setAgendamentos([])
+      return
     }
+
+    const filter =
+      role === 'admin'
+        ? `status = "ativo"`
+        : `usuario = "${usuarioId}" && status = "ativo"`
+
+    console.log('AG_COLLECTION:', AG_COLLECTION)
+    console.log('FILTER:', filter)
+
+    const dados = await pb.collection(AG_COLLECTION).getFullList<Agendamento>({
+      filter,
+      sort: 'data,inicio',
+      expand: 'chromebooks,usuario',
+    })
+
+    console.log('DADOS:', dados)
+    setAgendamentos(dados)
+  } catch (e: any) {
+    console.error('ERRO COMPLETO:', e)
+    console.error('STATUS:', e?.status)
+    console.error('DATA:', e?.data)
+    console.error('MESSAGE:', e?.message)
+    alert(e?.data?.message || e?.message || 'Erro ao carregar agendamentos')
+  } finally {
+    setCarregando(false)
   }
+}
 
   useEffect(() => {
     if (!authReady) return
@@ -160,6 +167,10 @@ export default function MeusAgendamentos() {
 
   function editarAgendamento(id: string) {
     router.push(`/admin/agendamentos/${id}`)
+  }
+
+  function irParaDevolucao(id: string) {
+    router.push(`/admin/agendamentos/${id}/devolucao`)
   }
 
   return (
@@ -279,10 +290,10 @@ export default function MeusAgendamentos() {
                               </button>
 
                               <button
-                                onClick={() => marcarDevolvido(a.id)}
+                                onClick={() => irParaDevolucao(a.id)}
                                 className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
                               >
-                                Devolvido
+                                Devolução
                               </button>
                             </>
                           )}

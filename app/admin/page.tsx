@@ -23,6 +23,7 @@ type Agendamento = {
   id: string
   usuario: string
   chromebooks: string[]
+  chromebooks_devolvidos?: string[]
   data: string
   inicio: number
   fim: number
@@ -33,6 +34,7 @@ type Agendamento = {
   observacoes?: string
   expand?: {
     chromebooks?: Chromebook[]
+    chromebooks_devolvidos?: Chromebook[]
     usuario?: User
   }
 }
@@ -82,7 +84,7 @@ export default function AdminPage() {
       setLoading(true)
 
       const dados = await pb.collection(AG_COLLECTION).getFullList<Agendamento>({
-        expand: 'usuario,chromebooks',
+        expand: 'usuario,chromebooks,chromebooks_devolvidos',
         sort: 'data,inicio',
         filter: `status = "ativo"`,
       })
@@ -120,20 +122,12 @@ export default function AdminPage() {
     }
   }
 
-  async function marcarDevolvido(id: string) {
-    try {
-      await pb.collection(AG_COLLECTION).update(id, { status_entrega: 'devolvido' })
-      setAgendamentos((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, status_entrega: 'devolvido' } : a))
-      )
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao marcar como devolvido')
-    }
-  }
-
   function editar(id: string) {
     router.push(`/admin/agendamentos/${id}`)
+  }
+
+  function irParaDevolucao(id: string) {
+    router.push(`/admin/agendamentos/${id}/devolucao`)
   }
 
   const agendamentosPorData = useMemo(() => {
@@ -160,7 +154,7 @@ export default function AdminPage() {
     <>
       <HeaderDashboard />
 
-      <div className="max-w-6xl mx-auto py-16">
+      <div className="max-w-6xl mx-auto py-16 px-4">
         <h1 className="text-3xl font-bold mb-8 text-center">
           Agenda geral (Admin)
         </h1>
@@ -178,6 +172,8 @@ export default function AdminPage() {
                 <div className="space-y-4">
                   {itens.map((a) => {
                     const chromes = a.expand?.chromebooks ?? []
+                    const devolvidos = a.expand?.chromebooks_devolvidos ?? []
+
                     const listaCodigos =
                       chromes.length > 0
                         ? chromes.map((c) => c.codigo ?? c.id).join(', ')
@@ -192,6 +188,11 @@ export default function AdminPage() {
                       ? `${a.turma}${a.classe ? ` ${a.classe}` : ''}`
                       : 'Sem turma'
 
+                    const totalReservados = chromes.length || (a.chromebooks?.length ?? 0)
+                    const totalDevolvidos =
+                      devolvidos.length || (a.chromebooks_devolvidos?.length ?? 0)
+                    const totalPendentes = Math.max(totalReservados - totalDevolvidos, 0)
+
                     const statusEntrega = a.status_entrega || 'pendente'
 
                     return (
@@ -205,7 +206,7 @@ export default function AdminPage() {
                           </p>
 
                           <p className="font-semibold text-gray-900 text-2xl">
-                            💻 {chromes.length || (a.chromebooks?.length ?? 0)} Chromebook(s)
+                            💻 {totalReservados} Chromebook(s)
                           </p>
 
                           <p className="text-sm text-gray-700 mt-1 break-words">
@@ -226,7 +227,21 @@ export default function AdminPage() {
                             ⏰ {minutosParaHora(a.inicio)} – {minutosParaHora(a.fim)}
                           </p>
 
-                          <p className="text-sm mt-2">
+                          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                            <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
+                              Reservados: {totalReservados}
+                            </span>
+
+                            <span className="px-3 py-1 rounded-full bg-green-50 text-green-700 font-medium">
+                              Devolvidos: {totalDevolvidos}
+                            </span>
+
+                            <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-700 font-medium">
+                              Pendentes: {totalPendentes}
+                            </span>
+                          </div>
+
+                          <p className="text-sm mt-3">
                             Status entrega:{' '}
                             <span
                               className={
@@ -260,10 +275,10 @@ export default function AdminPage() {
                           </button>
 
                           <button
-                            onClick={() => marcarDevolvido(a.id)}
+                            onClick={() => irParaDevolucao(a.id)}
                             className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
                           >
-                            Devolvido
+                            Devolução
                           </button>
 
                           <button

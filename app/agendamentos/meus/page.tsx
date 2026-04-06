@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { pb } from '@/lib/pocketbase'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
+import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
 import { useRouter } from 'next/navigation'
 
 type Chromebook = {
@@ -22,7 +23,7 @@ type User = {
 type Agendamento = {
   id: string
   usuario: string
-  chromebooks: string[]
+  chromebooks?: string[]
   data: string
   inicio: number
   fim: number
@@ -31,6 +32,8 @@ type Agendamento = {
   turma?: string
   classe?: string
   observacoes?: string
+  tipo?: 'chromebooks' | 'lab' | 'maker'
+  origem: typeof AG_COLLECTION | typeof ESPACOS_COLLECTION
   expand?: {
     chromebooks?: Chromebook[]
     usuario?: User
@@ -89,10 +92,28 @@ export default function MeusAgendamentos() {
     console.log('AG_COLLECTION:', AG_COLLECTION)
     console.log('FILTER:', filter)
 
-    const dados = await pb.collection(AG_COLLECTION).getFullList<Agendamento>({
-      filter,
-      sort: 'data,inicio',
-      expand: 'chromebooks,usuario',
+    const [chromebooks, espacos] = await Promise.all([
+      pb.collection(AG_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
+        filter,
+        sort: 'data,inicio',
+        expand: 'chromebooks,usuario',
+        requestKey: null,
+      }),
+      pb.collection(ESPACOS_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
+        filter,
+        sort: 'data,inicio',
+        expand: 'usuario',
+        requestKey: null,
+      }),
+    ])
+
+    const dados: Agendamento[] = [
+      ...chromebooks.map((item) => ({ ...item, tipo: 'chromebooks' as const, origem: AG_COLLECTION })),
+      ...espacos.map((item) => ({ ...item, origem: ESPACOS_COLLECTION })),
+    ].sort((a, b) => {
+      const chaveA = `${normalizarDataISO(a.data)}-${String(a.inicio).padStart(4, '0')}`
+      const chaveB = `${normalizarDataISO(b.data)}-${String(b.inicio).padStart(4, '0')}`
+      return chaveA.localeCompare(chaveB)
     })
 
     console.log('DADOS:', dados)
@@ -123,25 +144,25 @@ export default function MeusAgendamentos() {
     }, {})
   }, [agendamentos])
 
-  async function cancelarAgendamento(id: string) {
+  async function cancelarAgendamento(id: string, origem: Agendamento['origem']) {
     if (!confirm('Cancelar este agendamento?')) return
 
     try {
-      await pb.collection(AG_COLLECTION).update(id, { status: 'cancelado' })
-      setAgendamentos((prev) => prev.filter((a) => a.id !== id))
+      await pb.collection(origem).update(id, { status: 'cancelado' })
+      setAgendamentos((prev) => prev.filter((a) => !(a.id === id && a.origem === origem)))
     } catch (e) {
       console.error(e)
       alert('Erro ao cancelar. Veja o console (F12).')
     }
   }
 
-  async function marcarRetirado(id: string) {
+  async function marcarRetirado(id: string, origem: Agendamento['origem']) {
     try {
-      await pb.collection(AG_COLLECTION).update(id, { status_entrega: 'em_uso' })
+      await pb.collection(origem).update(id, { status_entrega: 'em_uso' })
 
       setAgendamentos((prev) =>
         prev.map((a) =>
-          a.id === id ? { ...a, status_entrega: 'em_uso' } : a
+          a.id === id && a.origem === origem ? { ...a, status_entrega: 'em_uso' } : a
         )
       )
     } catch (e) {
@@ -150,13 +171,13 @@ export default function MeusAgendamentos() {
     }
   }
 
-  async function marcarDevolvido(id: string) {
+  async function marcarDevolvido(id: string, origem: Agendamento['origem']) {
     try {
-      await pb.collection(AG_COLLECTION).update(id, { status_entrega: 'devolvido' })
+      await pb.collection(origem).update(id, { status_entrega: 'devolvido' })
 
       setAgendamentos((prev) =>
         prev.map((a) =>
-          a.id === id ? { ...a, status_entrega: 'devolvido' } : a
+          a.id === id && a.origem === origem ? { ...a, status_entrega: 'devolvido' } : a
         )
       )
     } catch (e) {

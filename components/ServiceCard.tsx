@@ -1,12 +1,21 @@
-import Link from 'next/link'
+"use client";
 
-export default function ServiceCard({ title, icon, href }: any) {
-return (
-<Link href={href}>
-<div className="border rounded-2xl p-10 flex flex-col items-center gap-4 hover:shadow-lg transition">
-{icon}
-<span className="text-xl font-semibold">{title}</span>
-</div>
-</Link>
-)
+import Link from "next/link";
+
+type Props = {
+  title: string;
+  icon: React.ReactNode;
+  href: string;
+};
+
+export default function ServiceCard({ title, icon, href }: Props) {
+  return (
+    <Link
+      href={href}
+      className="border rounded-2xl p-10 flex flex-col items-center gap-4 hover:shadow-lg transition bg-white"
+    >
+      {icon}
+      <span className="text-xl font-semibold text-center">{title}</span>
+    </Link>
+  );
 }

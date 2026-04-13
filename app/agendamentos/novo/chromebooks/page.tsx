@@ -96,9 +96,10 @@ export default function NovoAgendamentoChromebooks() {
     async function carregarChromebooks() {
       try {
         setCarregandoChromes(true)
-        const lista = await pb.collection('chromebooks').getFullList<Chromebook>({
-          sort: 'codigo',
-        })
+        const lista = await pb.collection("chromebooks").getFullList({
+          filter: 'tipo = "agendamento"',
+          sort: "codigo",
+        });
         setChromebooks(lista)
       } catch (e) {
         console.error(e)

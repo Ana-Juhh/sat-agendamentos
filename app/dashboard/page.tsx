@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
@@ -17,30 +17,45 @@ import HeaderDashboard from "@/components/HeaderDashboard";
 
 export default function Dashboard() {
   const router = useRouter();
-  const model = pb.authStore.model as { role?: string } | null;
 
-  const role = model?.role || "";
-  const isAdmin = role === "admin";
-  const isEstagiario = role.includes("estagiario");
+  const [mounted, setMounted] = useState(false);
+  const [role, setRole] = useState<string>("");
 
   useEffect(() => {
     if (!pb.authStore.isValid) {
-      router.push("/login");
+      router.replace("/login");
+      return;
     }
+
+    const model = pb.authStore.model as { role?: string } | null;
+    setRole(model?.role || "");
+    setMounted(true);
   }, [router]);
+
+  if (!mounted) {
+    return (
+      <>
+        <HeaderDashboard />
+        <div className="max-w-5xl mx-auto py-16 text-center text-gray-500">
+          Carregando...
+        </div>
+      </>
+    );
+  }
+
+  const isAdmin = role === "admin";
+  const isEstagiario = role.includes("estagiario");
 
   return (
     <>
       <HeaderDashboard />
 
-      <div className="max-w-5xl mx-auto py-16">
+      <div className="max-w-5xl mx-auto py-16 px-4">
         <h2 className="text-3xl font-bold text-center mb-10">
           Escolha o serviço
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-          {/* 👤 Usuário */}
           <ServiceCard
             title="Meus agendamentos"
             icon={<CalendarDays size={48} />}
@@ -53,24 +68,20 @@ export default function Dashboard() {
             href="/agendamentos/novo"
           />
 
-          {/* 🔧 Admin */}
-          {isAdmin && (
-            <>
-              <ServiceCard
-                title="Equipamentos"
-                icon={<Wrench size={48} />}
-                href="/admin/equipamentos"
-              />
+          {isAdmin ? (
+            <ServiceCard
+              title="Equipamentos"
+              icon={<Wrench size={48} />}
+              href="/admin/equipamentos"
+            />
+          ) : !isEstagiario ? (
+            <ServiceCard
+              title="Agenda geral"
+              icon={<CalendarDays size={48} />}
+              href="/agendamentos/agenda"
+            />
+          ) : null}
 
-              <ServiceCard
-                title="Relatórios de checagem"
-                icon={<ClipboardList size={48} />}
-                href="/admin/checagens"
-              />
-            </>
-          )}
-
-          {/* 📦 Estagiário / Admin */}
           {(isAdmin || isEstagiario) && (
             <ServiceCard
               title="Carrinhos"
@@ -79,7 +90,14 @@ export default function Dashboard() {
             />
           )}
 
-          {/* 📷 Scanner (deixa só admin se quiser) */}
+          {isAdmin && (
+            <ServiceCard
+              title="Relatórios de checagem"
+              icon={<ClipboardList size={48} />}
+              href="/admin/checagens"
+            />
+          )}
+
           {isAdmin && (
             <ServiceCard
               title="Ler QR Code dos Chromebooks"
@@ -87,7 +105,6 @@ export default function Dashboard() {
               href="/dashboard/scanner"
             />
           )}
-
         </div>
       </div>
     </>

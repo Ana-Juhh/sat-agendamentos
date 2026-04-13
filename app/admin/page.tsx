@@ -5,24 +5,23 @@ import { useRouter } from 'next/navigation'
 import { pb } from '@/lib/pocketbase'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
+import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
 
 type Chromebook = {
   id: string
   codigo?: string
-  status?: string
 }
 
 type User = {
   id: string
   name?: string
   email?: string
-  role?: 'admin' | 'professor'
 }
 
 type Agendamento = {
   id: string
   usuario: string
-  chromebooks: string[]
+  chromebooks?: string[]
   chromebooks_devolvidos?: string[]
   data: string
   inicio: number
@@ -32,6 +31,8 @@ type Agendamento = {
   turma?: string
   classe?: string
   observacoes?: string
+  tipo?: 'chromebooks' | 'lab' | 'maker'
+  origem: typeof AG_COLLECTION | typeof ESPACOS_COLLECTION
   expand?: {
     chromebooks?: Chromebook[]
     chromebooks_devolvidos?: Chromebook[]
@@ -63,7 +64,7 @@ export default function AdminPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
 
   useEffect(() => {
-    const model: any = pb.authStore.model
+    const model = pb.authStore.model as { role?: string } | null
 
     if (!pb.authStore.isValid) {
       router.replace('/login')
@@ -75,18 +76,42 @@ export default function AdminPage() {
       return
     }
 
-    carregar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    void carregar()
+  }, [router])
 
   async function carregar() {
     try {
       setLoading(true)
 
-      const dados = await pb.collection(AG_COLLECTION).getFullList<Agendamento>({
-        expand: 'usuario,chromebooks,chromebooks_devolvidos',
-        sort: 'data,inicio',
-        filter: `status = "ativo"`,
+      const [chromebooks, espacos] = await Promise.all([
+        pb.collection(AG_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
+          expand: 'usuario,chromebooks,chromebooks_devolvidos',
+          sort: 'data,inicio',
+          filter: `status = "ativo"`,
+          requestKey: null,
+        }),
+        pb.collection(ESPACOS_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
+          expand: 'usuario',
+          sort: 'data,inicio',
+          filter: `status = "ativo"`,
+          requestKey: null,
+        }),
+      ])
+
+      const dados: Agendamento[] = [
+        ...chromebooks.map((item) => ({
+          ...item,
+          tipo: 'chromebooks' as const,
+          origem: AG_COLLECTION,
+        })),
+        ...espacos.map((item) => ({
+          ...item,
+          origem: ESPACOS_COLLECTION,
+        })),
+      ].sort((a, b) => {
+        const chaveA = `${normalizarDataISO(a.data)}-${String(a.inicio).padStart(4, '0')}`
+        const chaveB = `${normalizarDataISO(b.data)}-${String(b.inicio).padStart(4, '0')}`
+        return chaveA.localeCompare(chaveB)
       })
 
       setAgendamentos(dados)
@@ -98,12 +123,12 @@ export default function AdminPage() {
     }
   }
 
-  async function cancelar(id: string) {
+  async function cancelar(id: string, origem: Agendamento['origem']) {
     if (!confirm('Cancelar este agendamento?')) return
 
     try {
-      await pb.collection(AG_COLLECTION).update(id, { status: 'cancelado' })
-      setAgendamentos((prev) => prev.filter((a) => a.id !== id))
+      await pb.collection(origem).update(id, { status: 'cancelado' })
+      setAgendamentos((prev) => prev.filter((a) => !(a.id === id && a.origem === origem)))
     } catch (err) {
       console.error(err)
       alert('Erro ao cancelar')
@@ -114,7 +139,7 @@ export default function AdminPage() {
     try {
       await pb.collection(AG_COLLECTION).update(id, { status_entrega: 'em_uso' })
       setAgendamentos((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, status_entrega: 'em_uso' } : a))
+        prev.map((a) => (a.id === id && a.origem === AG_COLLECTION ? { ...a, status_entrega: 'em_uso' } : a))
       )
     } catch (err) {
       console.error(err)
@@ -143,9 +168,7 @@ export default function AdminPage() {
     return (
       <>
         <HeaderDashboard />
-        <div className="max-w-6xl mx-auto py-16 text-center text-gray-500">
-          Carregando...
-        </div>
+        <div className="max-w-6xl mx-auto py-16 text-center text-gray-500">Carregando...</div>
       </>
     )
   }
@@ -155,9 +178,7 @@ export default function AdminPage() {
       <HeaderDashboard />
 
       <div className="max-w-6xl mx-auto py-16 px-4">
-        <h1 className="text-3xl font-bold mb-8 text-center">
-          Agenda geral (Admin)
-        </h1>
+        <h1 className="text-3xl font-bold mb-8 text-center">Agenda geral (Admin)</h1>
 
         {agendamentos.length === 0 ? (
           <p className="text-center text-gray-500">Nenhum agendamento encontrado</p>
@@ -165,28 +186,31 @@ export default function AdminPage() {
           <div className="space-y-10">
             {Object.entries(agendamentosPorData).map(([dataISO, itens]) => (
               <div key={dataISO}>
-                <h2 className="text-xl font-bold mb-4">
-                  📅 {formatarDataBR(dataISO)}
-                </h2>
+                <h2 className="text-xl font-bold mb-4">{formatarDataBR(dataISO)}</h2>
 
                 <div className="space-y-4">
                   {itens.map((a) => {
+                    const isChromebooks = a.origem === AG_COLLECTION
                     const chromes = a.expand?.chromebooks ?? []
                     const devolvidos = a.expand?.chromebooks_devolvidos ?? []
-
                     const listaCodigos =
                       chromes.length > 0
                         ? chromes.map((c) => c.codigo ?? c.id).join(', ')
                         : (a.chromebooks ?? []).join(', ')
 
                     const nomeUsuario =
-                      a.expand?.usuario?.name ||
-                      a.expand?.usuario?.email ||
-                      'Usuário sem nome'
+                      a.expand?.usuario?.name || a.expand?.usuario?.email || 'Usuario sem nome'
 
                     const turmaCompleta = a.turma
                       ? `${a.turma}${a.classe ? ` ${a.classe}` : ''}`
                       : 'Sem turma'
+
+                    const titulo =
+                      a.tipo === 'lab'
+                        ? 'Lab. de Ciencias'
+                        : a.tipo === 'maker'
+                          ? 'Sala Maker'
+                          : `${chromes.length || (a.chromebooks?.length ?? 0)} Chromebook(s)`
 
                     const totalReservados = chromes.length || (a.chromebooks?.length ?? 0)
                     const totalDevolvidos =
@@ -197,49 +221,43 @@ export default function AdminPage() {
 
                     return (
                       <div
-                        key={a.id}
+                        key={`${a.origem}-${a.id}`}
                         className="bg-white shadow rounded-xl p-5 flex justify-between items-start gap-4"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm text-gray-500 mb-1">
-                            👤 {nomeUsuario}
-                          </p>
+                          <p className="text-sm text-gray-500 mb-1">{nomeUsuario}</p>
 
-                          <p className="font-semibold text-gray-900 text-2xl">
-                            💻 {totalReservados} Chromebook(s)
-                          </p>
+                          <p className="font-semibold text-gray-900 text-2xl">{titulo}</p>
 
-                          <p className="text-sm text-gray-700 mt-1 break-words">
-                            {listaCodigos}
-                          </p>
+                          {isChromebooks && (
+                            <p className="text-sm text-gray-700 mt-1 break-words">{listaCodigos}</p>
+                          )}
 
-                          <p className="text-sm text-gray-600 mt-2">
-                            🎓 {turmaCompleta}
-                          </p>
+                          <p className="text-sm text-gray-600 mt-2">{turmaCompleta}</p>
 
                           {a.observacoes && (
-                            <p className="text-sm text-gray-600 mt-1 break-words">
-                              📝 {a.observacoes}
-                            </p>
+                            <p className="text-sm text-gray-600 mt-1 break-words">{a.observacoes}</p>
                           )}
 
                           <p className="text-sm text-gray-600 mt-2">
-                            ⏰ {minutosParaHora(a.inicio)} – {minutosParaHora(a.fim)}
+                            {minutosParaHora(a.inicio)} - {minutosParaHora(a.fim)}
                           </p>
 
-                          <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                            <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
-                              Reservados: {totalReservados}
-                            </span>
+                          {isChromebooks && (
+                            <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                              <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
+                                Reservados: {totalReservados}
+                              </span>
 
-                            <span className="px-3 py-1 rounded-full bg-green-50 text-green-700 font-medium">
-                              Devolvidos: {totalDevolvidos}
-                            </span>
+                              <span className="px-3 py-1 rounded-full bg-green-50 text-green-700 font-medium">
+                                Devolvidos: {totalDevolvidos}
+                              </span>
 
-                            <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-700 font-medium">
-                              Pendentes: {totalPendentes}
-                            </span>
-                          </div>
+                              <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-700 font-medium">
+                                Pendentes: {totalPendentes}
+                              </span>
+                            </div>
+                          )}
 
                           <p className="text-sm mt-3">
                             Status entrega:{' '}
@@ -260,29 +278,33 @@ export default function AdminPage() {
                         </div>
 
                         <div className="flex flex-col md:flex-row items-end md:items-center gap-2">
-                          <button
-                            onClick={() => editar(a.id)}
-                            className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition"
-                          >
-                            Editar
-                          </button>
+                          {isChromebooks && (
+                            <>
+                              <button
+                                onClick={() => editar(a.id)}
+                                className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition"
+                              >
+                                Editar
+                              </button>
+
+                              <button
+                                onClick={() => marcarRetirado(a.id)}
+                                className="text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg transition"
+                              >
+                                Retirado
+                              </button>
+
+                              <button
+                                onClick={() => irParaDevolucao(a.id)}
+                                className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
+                              >
+                                Devolucao
+                              </button>
+                            </>
+                          )}
 
                           <button
-                            onClick={() => marcarRetirado(a.id)}
-                            className="text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg transition"
-                          >
-                            Retirado
-                          </button>
-
-                          <button
-                            onClick={() => irParaDevolucao(a.id)}
-                            className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
-                          >
-                            Devolução
-                          </button>
-
-                          <button
-                            onClick={() => cancelar(a.id)}
+                            onClick={() => cancelar(a.id, a.origem)}
                             className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition"
                           >
                             Cancelar

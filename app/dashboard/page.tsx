@@ -2,15 +2,26 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, PlusCircle } from "lucide-react";
+import {
+  CalendarDays,
+  PlusCircle,
+  Wrench,
+  Package2,
+  ClipboardList,
+  QrCode,
+} from "lucide-react";
 
 import { pb } from "@/lib/pocketbase";
 import ServiceCard from "@/components/ServiceCard";
 import HeaderDashboard from "@/components/HeaderDashboard";
-import Link from "next/link";
 
 export default function Dashboard() {
   const router = useRouter();
+  const model = pb.authStore.model as { role?: string } | null;
+
+  const role = model?.role || "";
+  const isAdmin = role === "admin";
+  const isEstagiario = role.includes("estagiario");
 
   useEffect(() => {
     if (!pb.authStore.isValid) {
@@ -28,6 +39,8 @@ export default function Dashboard() {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+          {/* 👤 Usuário */}
           <ServiceCard
             title="Meus agendamentos"
             icon={<CalendarDays size={48} />}
@@ -40,17 +53,40 @@ export default function Dashboard() {
             href="/agendamentos/novo"
           />
 
-          <ServiceCard
-            title="Agenda geral"
-            icon={<CalendarDays size={48} />}
-            href="/agendamentos/agenda"
-          />
+          {/* 🔧 Admin */}
+          {isAdmin && (
+            <>
+              <ServiceCard
+                title="Equipamentos"
+                icon={<Wrench size={48} />}
+                href="/admin/equipamentos"
+              />
 
-          <ServiceCard
-            title="Ler QR Code dos Chromebooks"
-            icon={<span className="text-4xl">📷</span>} // Ou use um ícone da lucide-react como o 'QrCode'
-            href="/dashboard/scanner"
-          />
+              <ServiceCard
+                title="Relatórios de checagem"
+                icon={<ClipboardList size={48} />}
+                href="/admin/checagens"
+              />
+            </>
+          )}
+
+          {/* 📦 Estagiário / Admin */}
+          {(isAdmin || isEstagiario) && (
+            <ServiceCard
+              title="Carrinhos"
+              icon={<Package2 size={48} />}
+              href="/checagem/carrinhos"
+            />
+          )}
+
+          {/* 📷 Scanner (deixa só admin se quiser) */}
+          {isAdmin && (
+            <ServiceCard
+              title="Ler QR Code dos Chromebooks"
+              icon={<QrCode size={48} />}
+              href="/dashboard/scanner"
+            />
+          )}
 
         </div>
       </div>

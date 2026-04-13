@@ -1,196 +1,294 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import HeaderDashboard from '@/components/HeaderDashboard'
-import { pb } from '@/lib/pocketbase'
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import HeaderDashboard from "@/components/HeaderDashboard";
+import { pb } from "@/lib/pocketbase";
+
+type ChromebookStatus =
+  | "disponivel"
+  | "indisponivel"
+  | "em_uso"
+  | "manutencao";
+
+type ChromebookTipo = "agendamento" | "carrinho";
 
 type Chromebook = {
-  id: string
-  codigo: string
-  status: 'disponivel' | 'indisponivel' | 'em_uso' | 'manutencao'
-}
+  id: string;
+  codigo: string;
+  status: ChromebookStatus;
+  tipo?: ChromebookTipo;
+  carrinho?: string;
+  posicao?: number | null;
+};
 
-const STATUS_OPTIONS: Chromebook['status'][] = [
-  'disponivel',
-  'indisponivel',
-  'em_uso',
-  'manutencao',
-]
+const STATUS_OPTIONS: ChromebookStatus[] = [
+  "disponivel",
+  "indisponivel",
+  "em_uso",
+  "manutencao",
+];
+
+const TIPO_OPTIONS: ChromebookTipo[] = ["agendamento", "carrinho"];
 
 export default function AdminEquipamentosPage() {
-  const router = useRouter()
+  const router = useRouter();
 
-  const [loading, setLoading] = useState(true)
-  const [salvando, setSalvando] = useState(false)
-  const [chromebooks, setChromebooks] = useState<Chromebook[]>([])
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [chromebooks, setChromebooks] = useState<Chromebook[]>([]);
 
-  const [novoCodigo, setNovoCodigo] = useState('')
-  const [novoStatus, setNovoStatus] = useState<Chromebook['status']>('disponivel')
+  const [filtroTipo, setFiltroTipo] = useState<"todos" | "agendamento" | "carrinho">("todos");
+  const [filtroCarrinho, setFiltroCarrinho] = useState<string>("todos");
 
-  const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [editCodigo, setEditCodigo] = useState('')
-  const [editStatus, setEditStatus] = useState<Chromebook['status']>('disponivel')
+  const [novoCodigo, setNovoCodigo] = useState("");
+  const [novoStatus, setNovoStatus] = useState<ChromebookStatus>("disponivel");
+  const [novoTipo, setNovoTipo] = useState<ChromebookTipo>("agendamento");
+  const [novoCarrinho, setNovoCarrinho] = useState("");
+  const [novaPosicao, setNovaPosicao] = useState("");
+
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editCodigo, setEditCodigo] = useState("");
+  const [editStatus, setEditStatus] = useState<ChromebookStatus>("disponivel");
+  const [editTipo, setEditTipo] = useState<ChromebookTipo>("agendamento");
+  const [editCarrinho, setEditCarrinho] = useState("");
+  const [editPosicao, setEditPosicao] = useState("");
 
   useEffect(() => {
-    const model: any = pb.authStore.model
+    const model = pb.authStore.model as { role?: string } | null;
 
     if (!pb.authStore.isValid) {
-      router.replace('/login')
-      return
+      router.replace("/login");
+      return;
     }
 
-    if (model?.role !== 'admin') {
-      router.replace('/dashboard')
-      return
+    if (model?.role !== "admin") {
+      router.replace("/dashboard");
+      return;
     }
 
-    carregar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    carregar();
+  }, [router]);
 
   async function carregar() {
     try {
-      setLoading(true)
+      setLoading(true);
 
-      const dados = await pb.collection('chromebooks').getFullList<Chromebook>({
-        sort: 'codigo',
-      })
+      const dados = await pb.collection("chromebooks").getFullList<Chromebook>({
+        sort: "codigo",
+      });
 
-      setChromebooks(dados)
+      setChromebooks(dados);
     } catch (err) {
-      console.error(err)
-      alert('Erro ao carregar chromebooks')
+      console.error(err);
+      alert("Erro ao carregar chromebooks");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  async function adicionarChromebook(e: React.FormEvent) {
-    e.preventDefault()
+  const carrinhosDisponiveis = useMemo(() => {
+    const lista = Array.from(
+      new Set(
+        chromebooks
+          .filter((c) => (c.tipo || "agendamento") === "carrinho" && c.carrinho)
+          .map((c) => c.carrinho as string)
+      )
+    ).sort((a, b) => Number(a) - Number(b));
 
-    const codigo = novoCodigo.trim()
+    return lista;
+  }, [chromebooks]);
 
-    if (!codigo) {
-      alert('Digite o código do chromebook')
-      return
+  const chromebooksFiltrados = useMemo(() => {
+    let lista = [...chromebooks];
+
+    if (filtroTipo !== "todos") {
+      lista = lista.filter((c) => (c.tipo || "agendamento") === filtroTipo);
     }
 
-    setSalvando(true)
+    if (filtroCarrinho !== "todos") {
+      lista = lista.filter((c) => (c.carrinho || "") === filtroCarrinho);
+    }
+
+    return lista;
+  }, [chromebooks, filtroTipo, filtroCarrinho]);
+
+  const totalPorStatus = useMemo(() => {
+    return chromebooksFiltrados.reduce(
+      (acc, c) => {
+        acc[c.status] = (acc[c.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }, [chromebooksFiltrados]);
+
+  const codigoPreview =
+    novoTipo === "carrinho" && novoCarrinho && novaPosicao
+      ? `C${novoCarrinho}-${String(novaPosicao).padStart(2, "0")}`
+      : "";
+
+  const editCodigoPreview =
+    editTipo === "carrinho" && editCarrinho && editPosicao
+      ? `C${editCarrinho}-${String(editPosicao).padStart(2, "0")}`
+      : "";
+
+  async function adicionarChromebook(e: React.FormEvent) {
+    e.preventDefault();
+
+    let codigoFinal = novoCodigo.trim();
+
+    if (novoTipo === "carrinho") {
+      if (!novoCarrinho || !novaPosicao) {
+        alert("Preencha carrinho e posição");
+        return;
+      }
+
+      codigoFinal = `C${novoCarrinho}-${String(novaPosicao).padStart(2, "0")}`;
+    }
+
+    if (!codigoFinal) {
+      alert("Digite o código do chromebook");
+      return;
+    }
+
+    setSalvando(true);
     try {
-      const criado = await pb.collection('chromebooks').create<Chromebook>({
-        codigo,
+      const criado = await pb.collection("chromebooks").create<Chromebook>({
+        codigo: codigoFinal,
         status: novoStatus,
-      })
+        tipo: novoTipo,
+        carrinho: novoTipo === "carrinho" ? novoCarrinho : "",
+        posicao: novoTipo === "carrinho" ? Number(novaPosicao) : null,
+      });
 
       setChromebooks((prev) =>
         [...prev, criado].sort((a, b) => a.codigo.localeCompare(b.codigo))
-      )
+      );
 
-      setNovoCodigo('')
-      setNovoStatus('disponivel')
+      setNovoCodigo("");
+      setNovoStatus("disponivel");
+      setNovoTipo("agendamento");
+      setNovoCarrinho("");
+      setNovaPosicao("");
     } catch (err: any) {
-      console.error(err)
-      alert(err?.data?.message || err?.message || 'Erro ao adicionar chromebook')
+      console.error(err);
+      alert(err?.data?.message || err?.message || "Erro ao adicionar chromebook");
     } finally {
-      setSalvando(false)
+      setSalvando(false);
     }
   }
 
   function iniciarEdicao(chrome: Chromebook) {
-    setEditandoId(chrome.id)
-    setEditCodigo(chrome.codigo)
-    setEditStatus(chrome.status)
+    setEditandoId(chrome.id);
+    setEditCodigo(chrome.codigo);
+    setEditStatus(chrome.status);
+    setEditTipo(chrome.tipo || "agendamento");
+    setEditCarrinho(chrome.carrinho || "");
+    setEditPosicao(
+      chrome.posicao === null || chrome.posicao === undefined
+        ? ""
+        : String(chrome.posicao)
+    );
   }
 
   function cancelarEdicao() {
-    setEditandoId(null)
-    setEditCodigo('')
-    setEditStatus('disponivel')
+    setEditandoId(null);
+    setEditCodigo("");
+    setEditStatus("disponivel");
+    setEditTipo("agendamento");
+    setEditCarrinho("");
+    setEditPosicao("");
   }
 
   async function salvarEdicao(id: string) {
-    const codigo = editCodigo.trim()
+    let codigoFinal = editCodigo.trim();
 
-    if (!codigo) {
-      alert('O código não pode ficar vazio')
-      return
+    if (editTipo === "carrinho") {
+      if (!editCarrinho || !editPosicao) {
+        alert("Preencha carrinho e posição");
+        return;
+      }
+
+      codigoFinal = `C${editCarrinho}-${String(editPosicao).padStart(2, "0")}`;
     }
 
-    setSalvando(true)
+    if (!codigoFinal) {
+      alert("O código não pode ficar vazio");
+      return;
+    }
+
+    setSalvando(true);
     try {
-      const atualizado = await pb.collection('chromebooks').update<Chromebook>(id, {
-        codigo,
+      const atualizado = await pb.collection("chromebooks").update<Chromebook>(id, {
+        codigo: codigoFinal,
         status: editStatus,
-      })
+        tipo: editTipo,
+        carrinho: editTipo === "carrinho" ? editCarrinho : "",
+        posicao: editTipo === "carrinho" ? Number(editPosicao) : null,
+      });
 
       setChromebooks((prev) =>
         prev
           .map((c) => (c.id === id ? atualizado : c))
           .sort((a, b) => a.codigo.localeCompare(b.codigo))
-      )
+      );
 
-      cancelarEdicao()
+      cancelarEdicao();
     } catch (err: any) {
-      console.error(err)
-      alert(err?.data?.message || err?.message || 'Erro ao salvar edição')
+      console.error(err);
+      alert(err?.data?.message || err?.message || "Erro ao salvar edição");
     } finally {
-      setSalvando(false)
+      setSalvando(false);
     }
   }
 
-  async function trocarStatus(chrome: Chromebook, status: Chromebook['status']) {
+  async function trocarStatus(chrome: Chromebook, status: ChromebookStatus) {
     try {
-      const atualizado = await pb.collection('chromebooks').update<Chromebook>(chrome.id, {
+      const atualizado = await pb.collection("chromebooks").update<Chromebook>(chrome.id, {
         status,
-      })
+      });
 
       setChromebooks((prev) =>
         prev
           .map((c) => (c.id === chrome.id ? atualizado : c))
           .sort((a, b) => a.codigo.localeCompare(b.codigo))
-      )
+      );
     } catch (err: any) {
-      console.error(err)
-      alert(err?.data?.message || err?.message || 'Erro ao atualizar status')
+      console.error(err);
+      alert(err?.data?.message || err?.message || "Erro ao atualizar status");
     }
   }
 
   async function excluirChromebook(id: string) {
-    if (!confirm('Tem certeza que deseja excluir este chromebook?')) return
+    if (!confirm("Tem certeza que deseja excluir este chromebook?")) return;
 
     try {
-      await pb.collection('chromebooks').delete(id)
-      setChromebooks((prev) => prev.filter((c) => c.id !== id))
+      await pb.collection("chromebooks").delete(id);
+      setChromebooks((prev) => prev.filter((c) => c.id !== id));
     } catch (err: any) {
-      console.error(err)
-      alert(err?.data?.message || err?.message || 'Erro ao excluir chromebook')
+      console.error(err);
+      alert(err?.data?.message || err?.message || "Erro ao excluir chromebook");
     }
   }
 
-  const totalPorStatus = useMemo(() => {
-    return chromebooks.reduce(
-      (acc, c) => {
-        acc[c.status] = (acc[c.status] || 0) + 1
-        return acc
-      },
-      {} as Record<string, number>
-    )
-  }, [chromebooks])
-
-  function statusClass(status: Chromebook['status']) {
+  function statusClass(status: ChromebookStatus) {
     switch (status) {
-      case 'disponivel':
-        return 'text-green-700 bg-green-50'
-      case 'indisponivel':
-        return 'text-gray-700 bg-gray-100'
-      case 'em_uso':
-        return 'text-orange-700 bg-orange-50'
-      case 'manutencao':
-        return 'text-red-700 bg-red-50'
+      case "disponivel":
+        return "text-green-700 bg-green-50";
+      case "indisponivel":
+        return "text-gray-700 bg-gray-100";
+      case "em_uso":
+        return "text-orange-700 bg-orange-50";
+      case "manutencao":
+        return "text-red-700 bg-red-50";
       default:
-        return 'text-gray-700 bg-gray-100'
+        return "text-gray-700 bg-gray-100";
     }
+  }
+
+  function tipoLabel(tipo?: ChromebookTipo) {
+    return tipo === "carrinho" ? "Carrinho" : "Agendamento";
   }
 
   if (loading) {
@@ -201,7 +299,7 @@ export default function AdminEquipamentosPage() {
           Carregando equipamentos...
         </div>
       </>
-    )
+    );
   }
 
   return (
@@ -230,6 +328,39 @@ export default function AdminEquipamentosPage() {
           </div>
         </div>
 
+        <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium mb-2">Filtrar por tipo</label>
+            <select
+              value={filtroTipo}
+              onChange={(e) =>
+                setFiltroTipo(e.target.value as "todos" | "agendamento" | "carrinho")
+              }
+              className="w-full border rounded-lg px-4 py-2 bg-white"
+            >
+              <option value="todos">Todos</option>
+              <option value="agendamento">Somente agendamento</option>
+              <option value="carrinho">Somente carrinho</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-medium mb-2">Filtrar por carrinho</label>
+            <select
+              value={filtroCarrinho}
+              onChange={(e) => setFiltroCarrinho(e.target.value)}
+              className="w-full border rounded-lg px-4 py-2 bg-white"
+            >
+              <option value="todos">Todos os carrinhos</option>
+              {carrinhosDisponiveis.map((numero) => (
+                <option key={numero} value={numero}>
+                  Carrinho {numero}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <form
           onSubmit={adicionarChromebook}
           className="bg-white rounded-2xl shadow-sm p-6 mb-8"
@@ -237,22 +368,71 @@ export default function AdminEquipamentosPage() {
           <h2 className="text-xl font-semibold mb-4">Adicionar novo chromebook</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="block font-medium mb-2">Código</label>
-              <input
-                type="text"
-                value={novoCodigo}
-                onChange={(e) => setNovoCodigo(e.target.value)}
-                placeholder="Ex.: Chrome-008"
+            <div>
+              <label className="block font-medium mb-2">Tipo</label>
+              <select
+                value={novoTipo}
+                onChange={(e) => setNovoTipo(e.target.value as ChromebookTipo)}
                 className="w-full border rounded-lg px-4 py-2"
-              />
+              >
+                {TIPO_OPTIONS.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {tipoLabel(tipo)}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div>
+            {novoTipo === "agendamento" && (
+              <div className="md:col-span-2">
+                <label className="block font-medium mb-2">Código</label>
+                <input
+                  type="text"
+                  value={novoCodigo}
+                  onChange={(e) => setNovoCodigo(e.target.value)}
+                  placeholder="Ex.: Chrome-008"
+                  className="w-full border rounded-lg px-4 py-2"
+                />
+              </div>
+            )}
+
+            {novoTipo === "carrinho" && (
+              <>
+                <div>
+                  <label className="block font-medium mb-2">Carrinho</label>
+                  <input
+                    type="number"
+                    value={novoCarrinho}
+                    onChange={(e) => setNovoCarrinho(e.target.value)}
+                    placeholder="Ex.: 1"
+                    className="w-full border rounded-lg px-4 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium mb-2">Posição</label>
+                  <input
+                    type="number"
+                    value={novaPosicao}
+                    onChange={(e) => setNovaPosicao(e.target.value)}
+                    placeholder="Ex.: 3"
+                    className="w-full border rounded-lg px-4 py-2"
+                  />
+                </div>
+
+                <div className="md:col-span-3">
+                  <p className="text-sm text-gray-500">
+                    Código gerado: <strong>{codigoPreview || "-"}</strong>
+                  </p>
+                </div>
+              </>
+            )}
+
+            <div className="md:col-span-3">
               <label className="block font-medium mb-2">Status inicial</label>
               <select
                 value={novoStatus}
-                onChange={(e) => setNovoStatus(e.target.value as Chromebook['status'])}
+                onChange={(e) => setNovoStatus(e.target.value as ChromebookStatus)}
                 className="w-full border rounded-lg px-4 py-2 bg-white"
               >
                 {STATUS_OPTIONS.map((status) => (
@@ -270,14 +450,14 @@ export default function AdminEquipamentosPage() {
               disabled={salvando}
               className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold disabled:opacity-50"
             >
-              {salvando ? 'Salvando...' : 'Adicionar chromebook'}
+              {salvando ? "Salvando..." : "Adicionar chromebook"}
             </button>
           </div>
         </form>
 
         <div className="space-y-4">
-          {chromebooks.map((chrome) => {
-            const editando = editandoId === chrome.id
+          {chromebooksFiltrados.map((chrome) => {
+            const editando = editandoId === chrome.id;
 
             return (
               <div
@@ -286,23 +466,66 @@ export default function AdminEquipamentosPage() {
               >
                 {editando ? (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                    <div className="md:col-span-2">
-                      <label className="block font-medium mb-2">Código</label>
-                      <input
-                        type="text"
-                        value={editCodigo}
-                        onChange={(e) => setEditCodigo(e.target.value)}
-                        className="w-full border rounded-lg px-4 py-2"
-                      />
+                    <div>
+                      <label className="block font-medium mb-2">Tipo</label>
+                      <select
+                        value={editTipo}
+                        onChange={(e) => setEditTipo(e.target.value as ChromebookTipo)}
+                        className="w-full border rounded-lg px-4 py-2 bg-white"
+                      >
+                        {TIPO_OPTIONS.map((tipo) => (
+                          <option key={tipo} value={tipo}>
+                            {tipoLabel(tipo)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
+                    {editTipo === "agendamento" ? (
+                      <div className="md:col-span-2">
+                        <label className="block font-medium mb-2">Código</label>
+                        <input
+                          type="text"
+                          value={editCodigo}
+                          onChange={(e) => setEditCodigo(e.target.value)}
+                          className="w-full border rounded-lg px-4 py-2"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block font-medium mb-2">Carrinho</label>
+                          <input
+                            type="number"
+                            value={editCarrinho}
+                            onChange={(e) => setEditCarrinho(e.target.value)}
+                            className="w-full border rounded-lg px-4 py-2"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-medium mb-2">Posição</label>
+                          <input
+                            type="number"
+                            value={editPosicao}
+                            onChange={(e) => setEditPosicao(e.target.value)}
+                            className="w-full border rounded-lg px-4 py-2"
+                          />
+                        </div>
+
+                        <div className="md:col-span-4">
+                          <p className="text-sm text-gray-500">
+                            Código gerado: <strong>{editCodigoPreview || "-"}</strong>
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     <div>
                       <label className="block font-medium mb-2">Status</label>
                       <select
                         value={editStatus}
-                        onChange={(e) =>
-                          setEditStatus(e.target.value as Chromebook['status'])
-                        }
+                        onChange={(e) => setEditStatus(e.target.value as ChromebookStatus)}
                         className="w-full border rounded-lg px-4 py-2 bg-white"
                       >
                         {STATUS_OPTIONS.map((status) => (
@@ -313,7 +536,7 @@ export default function AdminEquipamentosPage() {
                       </select>
                     </div>
 
-                    <div className="flex gap-2 justify-end">
+                    <div className="md:col-span-4 flex gap-2 justify-end">
                       <button
                         onClick={cancelarEdicao}
                         type="button"
@@ -335,13 +558,26 @@ export default function AdminEquipamentosPage() {
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
                       <p className="text-xl font-semibold">{chrome.codigo}</p>
-                      <span
-                        className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-medium ${statusClass(
-                          chrome.status
-                        )}`}
-                      >
-                        {chrome.status}
-                      </span>
+
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusClass(
+                            chrome.status
+                          )}`}
+                        >
+                          {chrome.status}
+                        </span>
+
+                        <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700">
+                          {tipoLabel(chrome.tipo)}
+                        </span>
+
+                        {chrome.tipo === "carrinho" && (
+                          <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-700">
+                            Carrinho {chrome.carrinho || "-"} • Posição {chrome.posicao ?? "-"}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -352,27 +588,27 @@ export default function AdminEquipamentosPage() {
                         Editar
                       </button>
 
-                      {chrome.status !== 'disponivel' && (
+                      {chrome.status !== "disponivel" && (
                         <button
-                          onClick={() => trocarStatus(chrome, 'disponivel')}
+                          onClick={() => trocarStatus(chrome, "disponivel")}
                           className="px-4 py-2 rounded-lg text-green-700 hover:bg-green-50 transition"
                         >
                           Marcar disponível
                         </button>
                       )}
 
-                      {chrome.status !== 'indisponivel' && (
+                      {chrome.status !== "indisponivel" && (
                         <button
-                          onClick={() => trocarStatus(chrome, 'indisponivel')}
+                          onClick={() => trocarStatus(chrome, "indisponivel")}
                           className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition"
                         >
                           Indisponível
                         </button>
                       )}
 
-                      {chrome.status !== 'manutencao' && (
+                      {chrome.status !== "manutencao" && (
                         <button
-                          onClick={() => trocarStatus(chrome, 'manutencao')}
+                          onClick={() => trocarStatus(chrome, "manutencao")}
                           className="px-4 py-2 rounded-lg text-red-700 hover:bg-red-50 transition"
                         >
                           Manutenção
@@ -389,16 +625,16 @@ export default function AdminEquipamentosPage() {
                   </div>
                 )}
               </div>
-            )
+            );
           })}
 
-          {chromebooks.length === 0 && (
+          {chromebooksFiltrados.length === 0 && (
             <div className="text-center text-gray-500 py-12 bg-white rounded-2xl shadow-sm">
-              Nenhum chromebook cadastrado ainda.
+              Nenhum chromebook encontrado com esse filtro.
             </div>
           )}
         </div>
       </div>
     </>
-  )
+  );
 }

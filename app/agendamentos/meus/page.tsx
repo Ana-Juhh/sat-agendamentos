@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { pb } from '@/lib/pocketbase'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
 import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
-import { useRouter } from 'next/navigation'
 
 type Chromebook = {
   id: string
@@ -20,7 +20,7 @@ type User = {
   role?: 'admin' | 'professor'
 }
 
-type Agendamento = {
+type BaseAgendamento = {
   id: string
   usuario: string
   chromebooks?: string[]
@@ -33,11 +33,14 @@ type Agendamento = {
   classe?: string
   observacoes?: string
   tipo?: 'chromebooks' | 'lab' | 'maker'
-  origem: typeof AG_COLLECTION | typeof ESPACOS_COLLECTION
   expand?: {
     chromebooks?: Chromebook[]
     usuario?: User
   }
+}
+
+type Agendamento = BaseAgendamento & {
+  origem: typeof AG_COLLECTION | typeof ESPACOS_COLLECTION
 }
 
 function minutosParaHora(minutos: number) {
@@ -63,75 +66,75 @@ export default function MeusAgendamentos() {
 
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [carregando, setCarregando] = useState(true)
-
   const [authReady, setAuthReady] = useState(false)
   const [usuarioId, setUsuarioId] = useState<string | null>(null)
   const [role, setRole] = useState<'admin' | 'professor' | null>(null)
 
   useEffect(() => {
-    const model: any = pb.authStore.model
+    const model = pb.authStore.model as { id?: string; role?: 'admin' | 'professor' } | null
     setUsuarioId(model?.id ?? null)
-    setRole((model?.role as any) ?? null)
+    setRole(model?.role ?? null)
     setAuthReady(true)
   }, [])
 
   async function carregar() {
-  try {
-    setCarregando(true)
+    try {
+      setCarregando(true)
 
-    if (!pb.authStore.isValid || !usuarioId) {
-      setAgendamentos([])
-      return
+      if (!pb.authStore.isValid || !usuarioId) {
+        setAgendamentos([])
+        return
+      }
+
+      const filter =
+        role === 'admin'
+          ? `status = "ativo"`
+          : `usuario = "${usuarioId}" && status = "ativo"`
+
+      const [chromebooks, espacos] = await Promise.all([
+        pb.collection(AG_COLLECTION).getFullList<BaseAgendamento>({
+          filter,
+          sort: 'data,inicio',
+          expand: 'chromebooks,usuario',
+          requestKey: null,
+        }),
+        pb.collection(ESPACOS_COLLECTION).getFullList<BaseAgendamento>({
+          filter,
+          sort: 'data,inicio',
+          expand: 'usuario',
+          requestKey: null,
+        }),
+      ])
+
+      const dados: Agendamento[] = [
+        ...chromebooks.map((item) => ({
+          ...item,
+          tipo: 'chromebooks' as const,
+          origem: AG_COLLECTION,
+        })),
+        ...espacos.map((item) => ({
+          ...item,
+          origem: ESPACOS_COLLECTION,
+        })),
+      ].sort((a, b) => {
+        const chaveA = `${normalizarDataISO(a.data)}-${String(a.inicio).padStart(4, '0')}`
+        const chaveB = `${normalizarDataISO(b.data)}-${String(b.inicio).padStart(4, '0')}`
+        return chaveA.localeCompare(chaveB)
+      })
+
+      setAgendamentos(dados)
+    } catch (e) {
+      const erro = e as { data?: { message?: string }; message?: string }
+      console.error('ERRO COMPLETO:', e)
+      alert(erro?.data?.message || erro?.message || 'Erro ao carregar agendamentos')
+    } finally {
+      setCarregando(false)
     }
-
-    const filter =
-      role === 'admin'
-        ? `status = "ativo"`
-        : `usuario = "${usuarioId}" && status = "ativo"`
-
-    console.log('AG_COLLECTION:', AG_COLLECTION)
-    console.log('FILTER:', filter)
-
-    const [chromebooks, espacos] = await Promise.all([
-      pb.collection(AG_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
-        filter,
-        sort: 'data,inicio',
-        expand: 'chromebooks,usuario',
-        requestKey: null,
-      }),
-      pb.collection(ESPACOS_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
-        filter,
-        sort: 'data,inicio',
-        expand: 'usuario',
-        requestKey: null,
-      }),
-    ])
-
-    const dados: Agendamento[] = [
-      ...chromebooks.map((item) => ({ ...item, tipo: 'chromebooks' as const, origem: AG_COLLECTION })),
-      ...espacos.map((item) => ({ ...item, origem: ESPACOS_COLLECTION })),
-    ].sort((a, b) => {
-      const chaveA = `${normalizarDataISO(a.data)}-${String(a.inicio).padStart(4, '0')}`
-      const chaveB = `${normalizarDataISO(b.data)}-${String(b.inicio).padStart(4, '0')}`
-      return chaveA.localeCompare(chaveB)
-    })
-
-    console.log('DADOS:', dados)
-    setAgendamentos(dados)
-  } catch (e: any) {
-    console.error('ERRO COMPLETO:', e)
-    console.error('STATUS:', e?.status)
-    console.error('DATA:', e?.data)
-    console.error('MESSAGE:', e?.message)
-    alert(e?.data?.message || e?.message || 'Erro ao carregar agendamentos')
-  } finally {
-    setCarregando(false)
   }
-}
 
   useEffect(() => {
     if (!authReady) return
-    carregar()
+    void carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, usuarioId, role])
 
@@ -159,7 +162,6 @@ export default function MeusAgendamentos() {
   async function marcarRetirado(id: string, origem: Agendamento['origem']) {
     try {
       await pb.collection(origem).update(id, { status_entrega: 'em_uso' })
-
       setAgendamentos((prev) =>
         prev.map((a) =>
           a.id === id && a.origem === origem ? { ...a, status_entrega: 'em_uso' } : a
@@ -168,21 +170,6 @@ export default function MeusAgendamentos() {
     } catch (e) {
       console.error(e)
       alert('Erro ao marcar como retirado.')
-    }
-  }
-
-  async function marcarDevolvido(id: string, origem: Agendamento['origem']) {
-    try {
-      await pb.collection(origem).update(id, { status_entrega: 'devolvido' })
-
-      setAgendamentos((prev) =>
-        prev.map((a) =>
-          a.id === id && a.origem === origem ? { ...a, status_entrega: 'devolvido' } : a
-        )
-      )
-    } catch (e) {
-      console.error(e)
-      alert('Erro ao marcar como devolvido.')
     }
   }
 
@@ -200,27 +187,20 @@ export default function MeusAgendamentos() {
 
       <main className="max-w-5xl mx-auto px-4 py-10">
         <h1 className="text-3xl font-bold mb-8 text-center">
-          {!authReady
-            ? 'Carregando...'
-            : role === 'admin'
-              ? 'Agendamentos (Admin)'
-              : 'Meus Agendamentos'}
+          {!authReady ? 'Carregando...' : role === 'admin' ? 'Agendamentos (Admin)' : 'Meus Agendamentos'}
         </h1>
 
         {carregando ? (
           <div className="text-center py-20 text-gray-500">Carregando...</div>
         ) : agendamentos.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
-            <p className="text-6xl mb-4">📅</p>
             <p className="text-gray-500 text-lg">Nenhum agendamento ativo encontrado</p>
           </div>
         ) : (
           <div className="space-y-6">
             {Object.entries(agendamentosPorData).map(([dataISO, itens]) => (
               <div key={dataISO} className="bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold mb-4 text-gray-700">
-                  📅 {formatarDataBR(dataISO)}
-                </h2>
+                <h2 className="text-lg font-bold mb-4 text-gray-700">{formatarDataBR(dataISO)}</h2>
 
                 <div className="space-y-3">
                   {itens.map((a) => {
@@ -231,48 +211,45 @@ export default function MeusAgendamentos() {
                         : (a.chromebooks ?? []).join(', ')
 
                     const nomeUsuario =
-                      a.expand?.usuario?.name ||
-                      a.expand?.usuario?.email ||
-                      'Usuário sem nome'
+                      a.expand?.usuario?.name || a.expand?.usuario?.email || 'Usuario sem nome'
 
                     const turmaCompleta = a.turma
                       ? `${a.turma}${a.classe ? ` ${a.classe}` : ''}`
                       : 'Sem turma'
 
                     const statusEntrega = a.status_entrega || 'pendente'
+                    const isChromebooks = a.origem === AG_COLLECTION
+                    const titulo =
+                      a.tipo === 'lab'
+                        ? 'Lab. de Ciencias'
+                        : a.tipo === 'maker'
+                          ? 'Sala Maker'
+                          : `${chromes.length || (a.chromebooks?.length ?? 0)} Chromebook(s)`
 
                     return (
                       <div
-                        key={a.id}
+                        key={`${a.origem}-${a.id}`}
                         className="flex justify-between items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition"
                       >
                         <div className="min-w-0 flex-1">
                           {role === 'admin' && (
-                            <p className="text-xs text-gray-500 mb-1 truncate">
-                              👤 {nomeUsuario}
-                            </p>
+                            <p className="text-xs text-gray-500 mb-1 truncate">{nomeUsuario}</p>
                           )}
 
-                          <p className="font-semibold text-gray-900">
-                            💻 {chromes.length || (a.chromebooks?.length ?? 0)} Chromebook(s)
-                          </p>
+                          <p className="font-semibold text-gray-900">{titulo}</p>
 
-                          <p className="text-sm text-gray-700 mt-1 break-words">
-                            {listaCodigos}
-                          </p>
+                          {isChromebooks && (
+                            <p className="text-sm text-gray-700 mt-1 break-words">{listaCodigos}</p>
+                          )}
 
-                          <p className="text-sm text-gray-600 mt-2">
-                            🎓 {turmaCompleta}
-                          </p>
+                          <p className="text-sm text-gray-600 mt-2">{turmaCompleta}</p>
 
                           {a.observacoes && (
-                            <p className="text-sm text-gray-600 mt-1 break-words">
-                              📝 {a.observacoes}
-                            </p>
+                            <p className="text-sm text-gray-600 mt-1 break-words">{a.observacoes}</p>
                           )}
 
                           <p className="text-sm text-gray-600 mt-2">
-                            ⏰ {minutosParaHora(a.inicio)} – {minutosParaHora(a.fim)}
+                            {minutosParaHora(a.inicio)} - {minutosParaHora(a.fim)}
                           </p>
 
                           <p className="text-sm mt-2">
@@ -294,7 +271,7 @@ export default function MeusAgendamentos() {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap justify-end">
-                          {role === 'admin' && (
+                          {role === 'admin' && isChromebooks && (
                             <>
                               <button
                                 onClick={() => editarAgendamento(a.id)}
@@ -304,7 +281,7 @@ export default function MeusAgendamentos() {
                               </button>
 
                               <button
-                                onClick={() => marcarRetirado(a.id)}
+                                onClick={() => marcarRetirado(a.id, a.origem)}
                                 className="text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg transition"
                               >
                                 Retirado
@@ -314,13 +291,13 @@ export default function MeusAgendamentos() {
                                 onClick={() => irParaDevolucao(a.id)}
                                 className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
                               >
-                                Devolução
+                                Devolucao
                               </button>
                             </>
                           )}
 
                           <button
-                            onClick={() => cancelarAgendamento(a.id)}
+                            onClick={() => cancelarAgendamento(a.id, a.origem)}
                             className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition"
                           >
                             Cancelar

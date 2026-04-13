@@ -1,7 +1,4 @@
-import Header from '@/components/Header';
-import HeroSection from '@/components/HeroSection';
-import CalendarSection from '@/components/CalendarSection';
-import Footer from '@/components/Footer';
+import HomePageContent from '@/components/HomePageContent';
 
 export const viewport = {
   width: 'device-width',
@@ -10,14 +7,5 @@ export const viewport = {
 
 
 export default function Home() {
-  return (
-    <>
-      <Header />
-      <main>
-        <HeroSection />
-        <CalendarSection />
-      </main>
-      <Footer />
-    </>
-  );
+  return <HomePageContent />;
 }

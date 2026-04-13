@@ -1,51 +1,29 @@
 "use client";
 
 import PocketBase from "pocketbase";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
-import Image from "next/image";
 
-// 🔹 Instância do PocketBase usando SEMPRE o .env
-const pb = new PocketBase(
-  process.env.NEXT_PUBLIC_POCKETBASE_URL!
-);
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+
+const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL!);
 
 export default function LoginPage() {
   const loginWithGoogle = async () => {
     try {
-      /**
-       * 🔥 ESSENCIAL
-       * O redirectUrl garante que:
-       * - funcione no celular
-       * - funcione com Cloudflare
-       * - NÃO quebre no desktop
-       */
       const redirectUrl = `${process.env.NEXT_PUBLIC_POCKETBASE_URL}/api/oauth2-redirect`;
 
-      const authData = await pb
-        .collection("users")
-        .authWithOAuth2({
-          provider: "google",
-          redirectUrl,
-        });
+      const authData = await pb.collection("users").authWithOAuth2({
+        provider: "google",
+        redirectUrl,
+      });
 
-      /**
-       * 📱 MOBILE / CLOUDFLARE
-       * Google retorna uma URL que PRECISA ser aberta manualmente
-       */
-      // if (authData?.meta?.url) {
-      //   window.location.href = authData.meta.url;
-      //   return;
-      // }
+      if (authData?.meta?.url) {
+        window.location.href = authData.meta.url;
+        return;
+      }
 
-      /**
-       * 💻 DESKTOP / MODO SEGURO (REUNIÃO)
-       * Se por algum motivo não redirecionar,
-       * mas o auth estiver válido, entra direto
-       */
       if (pb.authStore.isValid) {
         window.location.href = "/dashboard";
       }
-
     } catch (err) {
       console.error("Erro ao fazer login:", err);
       alert("Erro ao fazer login com o Google. Tente novamente.");
@@ -53,39 +31,38 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* Container principal */}
-      <div className="max-w-7xl w-full mx-auto px-8 flex items-center justify-between">
-        
-        
-        {/* Left Side */}
-        <div className="max-w-xl">
-         <p className="text-3xl md:text-2xl font-semibold text-blue-600 mb-4 tracking-wide">
+    <div className="flex min-h-screen bg-white">
+      <div className="mx-auto flex w-full max-w-7xl flex-col justify-center gap-8 px-5 py-8 sm:px-6 md:gap-10 md:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="relative order-1 flex w-full min-w-0 flex-1 items-center justify-center overflow-visible lg:order-2 lg:justify-end">
+          <div className="relative z-10 w-full max-w-[14rem] rounded-[2rem] bg-white sm:max-w-[18rem] md:max-w-[22rem] lg:max-w-[min(30rem,34vw)] xl:max-w-[min(32rem,36vw)]">
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-auto max-h-[32vh] w-full rounded-[2rem] bg-white object-contain sm:max-h-[38vh] md:max-h-[44vh] lg:max-h-[58vh]"
+            >
+              <source src="/videos/mascote.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </div>
+
+        <div className="order-2 max-w-xl flex-1 text-center lg:order-1 lg:text-left">
+          <p className="mb-4 text-2xl font-semibold tracking-wide text-blue-600 sm:text-3xl md:text-2xl">
             Agendamento Satélite
           </p>
 
-          <h1 className="text-5xl font-bold text-gray-900 leading-snug">
-            Simplicidade para<br />
-            focar no que importa:<br />
-  <span className="text-blue-600">aprender.</span>
-</h1> <br></br>
+          <h1 className="text-4xl leading-snug font-bold text-gray-900 sm:text-5xl">
+            Simplicidade para
+            <br />
+            focar no que importa:
+            <br />
+            <span className="text-blue-600">aprender.</span>
+          </h1>
 
-          <GoogleSignInButton onClick={loginWithGoogle} />
-        </div>
-
-        {/* Right Side (esconde no celular) */}
-        <div className="relative hidden md:block overflow-visible">
-          <div className="absolute -top-20 -right-20 w-96 h-96 bg-yellow-400 rounded-full opacity-30 blur-3xl"></div>
-
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-[580px] h-auto object-contain"
-          >
-            <source src="/videos/mascote.mp4" type="video/mp4" />
-          </video>
+          <div className="mt-8 flex justify-center lg:justify-start">
+            <GoogleSignInButton onClick={loginWithGoogle} />
+          </div>
         </div>
       </div>
     </div>

@@ -1,28 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ClipboardList, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
-import { useRouter } from "next/navigation";
 
-type Checagem = {
+type Relatorio = {
   id: string;
-  created: string;
+  carrinho?: string;
   turno?: string;
+  verificadoEm?: string;
+  dataReferencia?: string;
+  totalChromebooks?: number;
+  totalVerificados?: number;
+  totalComProblema?: number;
+  expand?: {
+    verificadoPor?: {
+      id?: string;
+      name?: string;
+      nome?: string;
+      email?: string;
+    };
+  };
+};
+
+type RelatorioItem = {
+  id: string;
+  relatorio?: string;
+  chromebook?: string;
   verificado?: boolean;
   statusEncontrado?: string;
   observacao?: string;
-  verificadoEm?: string;
   foto?: string;
-  chromebook?: string;
-  verificadoPor?: string;
-  expand?: {
-    verificadoPor?: {
-      email?: string;
-      name?: string;
-      nome?: string;
-    };
-  };
 };
 
 type Chromebook = {
@@ -30,13 +40,14 @@ type Chromebook = {
   codigo?: string;
   carrinho?: string;
   posicao?: number;
-  tipo?: string;
 };
 
 export default function RelatoriosChecagemPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
-  const [checagens, setChecagens] = useState<Checagem[]>([]);
+  const [relatorios, setRelatorios] = useState<Relatorio[]>([]);
+  const [itensPorRelatorio, setItensPorRelatorio] = useState<Record<string, RelatorioItem[]>>({});
   const [chromebooksMap, setChromebooksMap] = useState<Record<string, Chromebook>>({});
   const [abertoId, setAbertoId] = useState<string | null>(null);
 
@@ -60,9 +71,12 @@ export default function RelatoriosChecagemPage() {
     try {
       setLoading(true);
 
-      const [dadosChecagens, dadosChromebooks] = await Promise.all([
-        pb.collection("checagens").getFullList<Checagem>({
+      const [dadosRelatorios, dadosItens, dadosChromebooks] = await Promise.all([
+        pb.collection("relatorios_checagem").getFullList<Relatorio>({
           expand: "verificadoPor",
+          sort: "-verificadoEm,-created",
+        }),
+        pb.collection("relatorio_itens").getFullList<RelatorioItem>({
           sort: "-created",
         }),
         pb.collection("chromebooks").getFullList<Chromebook>({
@@ -70,32 +84,47 @@ export default function RelatoriosChecagemPage() {
         }),
       ]);
 
-      const mapa: Record<string, Chromebook> = {};
+      const mapaChromebooks: Record<string, Chromebook> = {};
       for (const chrome of dadosChromebooks) {
-        mapa[chrome.id] = chrome;
+        mapaChromebooks[chrome.id] = chrome;
       }
 
-      setChromebooksMap(mapa);
-      setChecagens(dadosChecagens);
+      const agrupados: Record<string, RelatorioItem[]> = {};
+      for (const item of dadosItens) {
+        if (!item.relatorio) continue;
+        if (!agrupados[item.relatorio]) {
+          agrupados[item.relatorio] = [];
+        }
+        agrupados[item.relatorio].push(item);
+      }
+
+      setChromebooksMap(mapaChromebooks);
+      setItensPorRelatorio(agrupados);
+      setRelatorios(dadosRelatorios);
     } catch (err) {
       console.error(err);
-      alert("Erro ao carregar relatórios de checagem");
+      alert("Erro ao carregar relatórios");
     } finally {
       setLoading(false);
     }
   }
 
   async function limparRelatorios() {
-    const confirmar = confirm("Tem certeza que deseja apagar todos os relatórios de checagem?");
+    const confirmar = confirm("Tem certeza que deseja apagar todos os relatórios e itens?");
     if (!confirmar) return;
 
     try {
-      const registros = await pb.collection("checagens").getFullList<Checagem>({
-        sort: "-created",
-      });
+      const [dadosRelatorios, dadosItens] = await Promise.all([
+        pb.collection("relatorios_checagem").getFullList<Relatorio>(),
+        pb.collection("relatorio_itens").getFullList<RelatorioItem>(),
+      ]);
 
-      for (const item of registros) {
-        await pb.collection("checagens").delete(item.id);
+      for (const item of dadosItens) {
+        await pb.collection("relatorio_itens").delete(item.id);
+      }
+
+      for (const relatorio of dadosRelatorios) {
+        await pb.collection("relatorios_checagem").delete(relatorio.id);
       }
 
       alert("Relatórios apagados com sucesso!");
@@ -110,138 +139,184 @@ export default function RelatoriosChecagemPage() {
     setAbertoId((prev) => (prev === id ? null : id));
   }
 
-  function getFotoUrl(item: Checagem) {
+  function getFotoUrl(item: RelatorioItem) {
     if (!item.foto) return null;
     return pb.files.getURL(item, item.foto);
   }
 
-  const relatorios = useMemo(() => {
-    return checagens.map((item) => {
-      const chromebook = item.chromebook ? chromebooksMap[item.chromebook] : undefined;
-
-      return {
-        ...item,
-        codigo: chromebook?.codigo || "Sem código",
-        carrinho: chromebook?.carrinho || "-",
-        posicao: chromebook?.posicao ?? "-",
-      };
-    });
-  }, [checagens, chromebooksMap]);
+  if (loading) {
+    return (
+      <>
+        <HeaderDashboard />
+        <div className="max-w-6xl mx-auto py-16 px-4">
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
+            Carregando relatórios...
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <HeaderDashboard />
 
-      <div className="max-w-6xl mx-auto py-16 px-4">
-        <h1 className="text-3xl font-bold text-center mb-6">
-          Relatórios de checagem
-        </h1>
+      <div className="max-w-6xl mx-auto py-12 px-4">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-slate-900">Relatórios de checagem</h1>
+          <p className="text-gray-500 mt-2">
+            Veja os carrinhos checados e abra os detalhes quando precisar.
+          </p>
+        </div>
 
-        <div className="flex justify-center gap-4 mb-8">
+        <div className="flex justify-center mb-8">
           <button
             onClick={limparRelatorios}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+            className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-medium transition"
           >
+            <Trash2 size={18} />
             Limpar relatórios
-          </button>
-
-          <button
-            disabled
-            className="bg-gray-300 text-gray-600 px-4 py-2 rounded-lg cursor-not-allowed"
-          >
-            Exportar DOCX
           </button>
         </div>
 
-        {loading ? (
-          <p className="text-center text-gray-500">Carregando...</p>
-        ) : relatorios.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm p-8 text-center text-gray-500">
-            Nenhuma checagem encontrada.
+        {relatorios.length === 0 ? (
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
+            Nenhum relatório encontrado.
           </div>
         ) : (
           <div className="space-y-4">
-            {relatorios.map((item) => {
+            {relatorios.map((relatorio) => {
               const responsavel =
-                item.expand?.verificadoPor?.name ||
-                item.expand?.verificadoPor?.nome ||
-                item.expand?.verificadoPor?.email ||
+                relatorio.expand?.verificadoPor?.name ||
+                relatorio.expand?.verificadoPor?.nome ||
+                relatorio.expand?.verificadoPor?.email ||
                 "-";
 
-              const fotoUrl = getFotoUrl(item);
-              const aberto = abertoId === item.id;
+              const itens = itensPorRelatorio[relatorio.id] || [];
+              const aberto = abertoId === relatorio.id;
 
               return (
                 <div
-                  key={item.id}
-                  className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100"
+                  key={relatorio.id}
+                  className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"
                 >
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    <div>
-                      <p className="font-semibold text-xl">{item.codigo}</p>
-                      <p className="text-sm text-gray-500">
-                        Carrinho: {item.carrinho}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Turno: {item.turno || "-"}
-                      </p>
-                    </div>
-
-                    <div className="text-sm space-y-1">
-                      <p>
-                        <strong>Status:</strong> {item.statusEncontrado || "ok"}
-                      </p>
-                      <p>
-                        <strong>Verificado:</strong> {item.verificado ? "Sim" : "Não"}
-                      </p>
-                      <p>
-                        <strong>Por:</strong> {responsavel}
-                      </p>
-                      <p>
-                        <strong>Data:</strong>{" "}
-                        {item.verificadoEm
-                          ? new Date(item.verificadoEm).toLocaleString("pt-BR")
-                          : new Date(item.created).toLocaleString("pt-BR")}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <button
-                      onClick={() => toggleDetalhes(item.id)}
-                      className="text-blue-600 text-sm font-medium hover:underline"
-                    >
-                      {aberto ? "Ocultar detalhes" : "Mais detalhes"}
-                    </button>
-                  </div>
-
-                  {aberto && (
-                    <div className="mt-4 border-t pt-4 space-y-3">
-                      <p className="text-sm">
-                        <strong>ID do chromebook:</strong> {item.chromebook || "-"}
-                      </p>
-
-                      <p className="text-sm">
-                        <strong>Posição no carrinho:</strong> {item.posicao}
-                      </p>
-
+                  <div className="p-5 md:p-6">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                       <div>
-                        <p className="text-sm font-medium">Observação</p>
-                        <p className="text-sm text-gray-700 mt-1">
-                          {item.observacao?.trim()
-                            ? item.observacao
-                            : "Nenhuma observação informada."}
+                        <div className="inline-flex items-center gap-2 text-blue-700 bg-blue-50 px-3 py-1 rounded-full text-sm font-medium mb-3">
+                          <ClipboardList size={16} />
+                          Carrinho {relatorio.carrinho || "-"}
+                        </div>
+
+                        <h2 className="text-2xl font-semibold text-slate-900">
+                          {relatorio.turno === "manha" ? "Manhã" : "Tarde"}
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mt-2">
+                          {relatorio.verificadoEm
+                            ? new Date(relatorio.verificadoEm).toLocaleString("pt-BR")
+                            : "-"}
+                        </p>
+
+                        <p className="text-sm text-gray-500 mt-1">
+                          Responsável: {responsavel}
                         </p>
                       </div>
 
-                      {fotoUrl && (
-                        <div>
-                          <p className="text-sm font-medium mb-2">Foto do problema</p>
-                          <img
-                            src={fotoUrl}
-                            alt="Foto do problema"
-                            className="max-w-xs rounded-xl border"
-                          />
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-slate-50 rounded-2xl px-4 py-3 text-center">
+                          <p className="text-xs text-gray-500">Total</p>
+                          <p className="text-xl font-bold">{relatorio.totalChromebooks || 0}</p>
+                        </div>
+
+                        <div className="bg-green-50 rounded-2xl px-4 py-3 text-center">
+                          <p className="text-xs text-green-700">Verificados</p>
+                          <p className="text-xl font-bold text-green-700">
+                            {relatorio.totalVerificados || 0}
+                          </p>
+                        </div>
+
+                        <div className="bg-red-50 rounded-2xl px-4 py-3 text-center">
+                          <p className="text-xs text-red-700">Problemas</p>
+                          <p className="text-xl font-bold text-red-700">
+                            {relatorio.totalComProblema || 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <button
+                        onClick={() => toggleDetalhes(relatorio.id)}
+                        className="inline-flex items-center gap-2 text-blue-600 font-medium hover:underline"
+                      >
+                        {aberto ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        {aberto ? "Ocultar detalhes" : "Mais detalhes"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {aberto && (
+                    <div className="border-t border-gray-100 bg-slate-50 px-5 md:px-6 py-5">
+                      {itens.length === 0 ? (
+                        <p className="text-sm text-gray-500">Nenhum item encontrado neste relatório.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {itens.map((item) => {
+                            const chrome = item.chromebook
+                              ? chromebooksMap[item.chromebook]
+                              : undefined;
+
+                            const fotoUrl = getFotoUrl(item);
+
+                            return (
+                              <div
+                                key={item.id}
+                                className="bg-white rounded-2xl border border-gray-100 p-4"
+                              >
+                                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-slate-900">
+                                      {chrome?.codigo || "Sem código"}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                      Carrinho {chrome?.carrinho || relatorio.carrinho || "-"} •
+                                      Posição {chrome?.posicao ?? "-"}
+                                    </p>
+                                  </div>
+
+                                  <div className="text-sm">
+                                    <p>
+                                      <strong>Verificado:</strong> {item.verificado ? "Sim" : "Não"}
+                                    </p>
+                                    <p>
+                                      <strong>Status:</strong> {item.statusEncontrado || "ok"}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {item.observacao && (
+                                  <div className="mt-3">
+                                    <p className="text-sm font-medium text-slate-700">Observação</p>
+                                    <p className="text-sm text-gray-700 mt-1">{item.observacao}</p>
+                                  </div>
+                                )}
+
+                                {fotoUrl && (
+                                  <div className="mt-3">
+                                    <p className="text-sm font-medium text-slate-700 mb-2">
+                                      Foto do problema
+                                    </p>
+                                    <img
+                                      src={fotoUrl}
+                                      alt="Foto do problema"
+                                      className="max-w-xs rounded-2xl border"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

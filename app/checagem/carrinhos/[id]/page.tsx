@@ -18,6 +18,7 @@ const STATUS_OPTIONS = [
   "tela_quebrada",
   "nao_liga",
   "teclado_com_defeito",
+  "carregamento_com_defeito",
   "outro",
 ];
 
@@ -39,7 +40,6 @@ export default function CarrinhoPage() {
   const [formData, setFormData] = useState<Record<string, FormItem>>({});
 
   const user = pb.authStore.model as { id?: string; role?: string } | null;
-  const role = user?.role;
 
   useEffect(() => {
     carregar();
@@ -79,12 +79,14 @@ export default function CarrinhoPage() {
   function marcarTodos() {
     setFormData((prev) => {
       const atualizado = { ...prev };
+
       Object.keys(atualizado).forEach((id) => {
         atualizado[id] = {
           ...atualizado[id],
           verificado: true,
         };
       });
+
       return atualizado;
     });
   }
@@ -113,40 +115,76 @@ export default function CarrinhoPage() {
     }));
   }
 
-  async function salvarTudo() {
+  async function salvarTudo(acao: "voltar" | "proximo" | "finalizar") {
     try {
       setSalvando(true);
 
-      const turno =
-        role === "estagiario_manha"
-          ? "manha"
-          : role === "estagiario_tarde"
-          ? "tarde"
-          : "manha";
+      const agora = new Date();
+      const hora = agora.getHours();
+      const turno = hora < 13 ? "manha" : "tarde";
+
+      const totalChromebooks = chromebooks.length;
+
+      const totalVerificados = Object.values(formData).filter(
+        (d) => d.verificado
+      ).length;
+
+      const totalComProblema = Object.values(formData).filter(
+        (d) => d.mostrarProblema && d.status !== "ok"
+      ).length;
+
+      const relatorio = await pb.collection("relatorios_checagem").create({
+        carrinho: carrinhoId,
+        turno,
+        verificadoPor: user?.id,
+        verificadoEm: agora.toISOString(),
+        dataReferencia: agora.toISOString(),
+        totalChromebooks,
+        totalVerificados,
+        totalComProblema,
+      });
 
       for (const chrome of chromebooks) {
         const dados = formData[chrome.id];
         if (!dados) continue;
 
         const form = new FormData();
+        form.append("relatorio", relatorio.id);
         form.append("chromebook", chrome.id);
-        form.append("turno", turno);
         form.append("verificado", String(dados.verificado));
         form.append("statusEncontrado", dados.status);
         form.append("observacao", dados.observacao);
-        form.append("verificadoPor", user?.id || "");
-        form.append("verificadoEm", new Date().toISOString());
-        form.append("dataReferencia", new Date().toISOString());
 
         if (dados.foto) {
           form.append("foto", dados.foto);
         }
 
-        await pb.collection("checagens").create(form);
+        await pb.collection("relatorio_itens").create(form);
       }
 
       alert("Checagem salva com sucesso!");
-      carregar();
+
+      const carrinhoAtual = Number(carrinhoId);
+      const proximo = carrinhoAtual + 1;
+
+      if (acao === "voltar") {
+        window.location.href = "/checagem/carrinhos";
+        return;
+      }
+
+      if (acao === "proximo") {
+        if (proximo <= 5) {
+          window.location.href = `/checagem/carrinhos/${proximo}`;
+        } else {
+          window.location.href = "/checagem/carrinhos";
+        }
+        return;
+      }
+
+      if (acao === "finalizar") {
+        window.location.href = "/admin/checagens";
+        return;
+      }
     } catch (err) {
       console.error(err);
       alert("Erro ao salvar checagem");
@@ -174,7 +212,9 @@ export default function CarrinhoPage() {
 
       <div className="max-w-5xl mx-auto py-12 px-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900">Carrinho {carrinhoId}</h1>
+          <h1 className="text-4xl font-bold text-slate-900">
+            Carrinho {carrinhoId}
+          </h1>
           <p className="text-gray-500 mt-2">
             Marque os chromebooks verificados e relate problemas apenas quando necessário.
           </p>
@@ -198,16 +238,6 @@ export default function CarrinhoPage() {
                 <CheckCircle2 size={18} />
                 Marcar todos
               </button>
-
-              <button
-                onClick={salvarTudo}
-                disabled={salvando}
-                type="button"
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition disabled:opacity-50"
-              >
-                <Save size={18} />
-                {salvando ? "Salvando..." : "Salvar checagem"}
-              </button>
             </div>
           </div>
         </div>
@@ -224,23 +254,27 @@ export default function CarrinhoPage() {
                 <div className="p-5 md:p-6">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
-                      <h2 className="text-2xl font-semibold text-slate-900">{c.codigo}</h2>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        {c.codigo}
+                      </h2>
                       <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-sm font-medium">
                         Posição {c.posicao ?? "-"}
                       </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 md:items-center">
-                      <label className="inline-flex items-center gap-3 px-4 py-3 rounded-2xl border border-gray-200 hover:bg-gray-50 cursor-pointer transition">
+                      <label className="inline-flex items-center px-4 py-3 rounded-2xl border border-gray-200 hover:bg-gray-50 cursor-pointer transition">
                         <input
-                            type="checkbox"
-                            className="h-5 w-5 mr-2"
-                            checked={dados?.verificado || false}
-                            onChange={(e) =>
-                                atualizarCampo(c.id, "verificado", e.target.checked)
-                            }
-                            />
-                        <span className="font-medium text-slate-800">Verificado</span>
+                          type="checkbox"
+                          className="h-5 w-5 mr-3 accent-blue-600"
+                          checked={dados?.verificado || false}
+                          onChange={(e) =>
+                            atualizarCampo(c.id, "verificado", e.target.checked)
+                          }
+                        />
+                        <span className="font-medium text-slate-800">
+                          Verificado
+                        </span>
                       </label>
 
                       <button
@@ -253,7 +287,9 @@ export default function CarrinhoPage() {
                         }`}
                       >
                         <AlertTriangle size={18} />
-                        {dados?.mostrarProblema ? "Ocultar problema" : "Relatar problema"}
+                        {dados?.mostrarProblema
+                          ? "Ocultar problema"
+                          : "Relatar problema"}
                       </button>
                     </div>
                   </div>
@@ -321,6 +357,32 @@ export default function CarrinhoPage() {
             Nenhum chromebook encontrado neste carrinho.
           </div>
         )}
+
+        <div className="flex flex-col sm:flex-row gap-3 mt-8 justify-end">
+          <button
+            onClick={() => salvarTudo("voltar")}
+            disabled={salvando}
+            className="px-4 py-3 rounded-2xl bg-gray-200 hover:bg-gray-300 font-medium disabled:opacity-50"
+          >
+            Salvar e voltar
+          </button>
+
+          <button
+            onClick={() => salvarTudo("proximo")}
+            disabled={salvando}
+            className="px-4 py-3 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-medium disabled:opacity-50"
+          >
+            Próximo carrinho →
+          </button>
+
+          <button
+            onClick={() => salvarTudo("finalizar")}
+            disabled={salvando}
+            className="px-4 py-3 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-50"
+          >
+            Finalizar checagem
+          </button>
+        </div>
       </div>
     </>
   );

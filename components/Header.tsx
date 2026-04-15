@@ -39,7 +39,8 @@ export default function Header({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-4">
           <Link href="/" className="flex items-center">
-            <img src="/logo.png" alt="Colégio Satélite" className="h-12" />
+            <img src="/logo.png" alt="Colégio Satélite" className="site-logo site-logo--light h-12" />
+            <img src="/logobranco.png" alt="Colégio Satélite" className="site-logo site-logo--dark h-12" />
           </Link>
 
           <nav className="flex items-center gap-4 sm:gap-6">

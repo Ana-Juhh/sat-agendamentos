@@ -307,6 +307,26 @@
   line-height: 1;
 }
 
+.site-logo {
+  display: block;
+}
+
+.site-logo--light {
+  display: block;
+}
+
+.site-logo--dark {
+  display: none;
+}
+
+html[data-theme='dark'] .site-logo--light {
+  display: none;
+}
+
+html[data-theme='dark'] .site-logo--dark {
+  display: block;
+}
+
 .theme-toggle__icon,
 html[data-theme='light'] .theme-toggle__icon {
   background: rgba(59, 130, 246, 0.12);

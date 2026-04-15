@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { useSyncExternalStore } from 'react'
 import { pb } from '@/lib/pocketbase'
@@ -18,7 +19,9 @@ function getAdminSnapshot() {
 
 export default function HeaderDashboard() {
   const router = useRouter()
+  const pathname = usePathname()
   const isAdmin = useSyncExternalStore(subscribe, getAdminSnapshot, () => false)
+  const shouldShowThemeToggle = !pathname.startsWith('/admin')
 
   function handleLogout() {
     pb.authStore.clear()
@@ -52,7 +55,7 @@ export default function HeaderDashboard() {
               </Link>
             )}
 
-            <ThemeToggle variant="inline" />
+            {shouldShowThemeToggle ? <ThemeToggle variant="inline" /> : null}
 
             <button
               onClick={handleLogout}

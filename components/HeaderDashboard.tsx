@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useSyncExternalStore } from 'react'
 import { pb } from '@/lib/pocketbase'
-import ThemeToggle from '@/components/ThemeToggle';
+import { shouldShowAdminArea } from '@/lib/roles'
+import ThemeToggle from '@/components/ThemeToggle'
 
 function subscribe(callback: () => void) {
   return pb.authStore.onChange(() => {
@@ -14,13 +14,14 @@ function subscribe(callback: () => void) {
 }
 
 function getAdminSnapshot() {
-  return !!pb.authStore.model?.isAdmin
+  const model = pb.authStore.model as { role?: string } | null
+  return shouldShowAdminArea(model?.role)
 }
 
 export default function HeaderDashboard() {
   const router = useRouter()
   const pathname = usePathname()
-  const isAdmin = useSyncExternalStore(subscribe, getAdminSnapshot, () => false)
+  const canAccessAdminArea = useSyncExternalStore(subscribe, getAdminSnapshot, () => false)
   const shouldShowThemeToggle = !pathname.startsWith('/admin')
 
   function handleLogout() {
@@ -35,18 +36,18 @@ export default function HeaderDashboard() {
           <Link href="/dashboard" className="flex items-center">
             <img
               src="/logo.png"
-              alt="Colégio Satélite"
+              alt="Colegio Satelite"
               className="site-logo site-logo--light h-10 w-auto sm:h-12"
             />
             <img
               src="/logobranco.png"
-              alt="Colégio Satélite"
+              alt="Colegio Satelite"
               className="site-logo site-logo--dark h-10 w-auto sm:h-12"
             />
           </Link>
 
           <nav className="flex items-center gap-3 sm:gap-6">
-            {isAdmin && (
+            {canAccessAdminArea && (
               <Link
                 href="/admin"
                 className="text-gray-700 hover:text-gray-900 text-sm sm:text-base font-medium"

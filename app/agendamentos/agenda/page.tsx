@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -12,6 +13,7 @@ import { pb } from '@/lib/pocketbase'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
 import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
+import { canViewAllAgendamentos } from '@/lib/roles'
 
 type User = {
   id: string
@@ -100,11 +102,24 @@ function montarDescricao(record: AgendaRecord) {
 }
 
 export default function Agenda() {
+  const router = useRouter()
   const [eventos, setEventos] = useState<EventInput[]>([])
   const [carregando, setCarregando] = useState(true)
 
   useEffect(() => {
     async function carregarAgenda() {
+      const model = pb.authStore.model as { role?: string } | null
+
+      if (!pb.authStore.isValid) {
+        router.replace('/login')
+        return
+      }
+
+      if (!canViewAllAgendamentos(model?.role)) {
+        router.replace('/dashboard')
+        return
+      }
+
       try {
         setCarregando(true)
 
@@ -157,7 +172,7 @@ export default function Agenda() {
     }
 
     void carregarAgenda()
-  }, [])
+  }, [router])
 
   function handleEventClick(info: EventClickArg) {
     const descricao = String(info.event.extendedProps.descricao || '')

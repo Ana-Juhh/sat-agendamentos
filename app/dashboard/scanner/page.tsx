@@ -1,15 +1,32 @@
 'use client'
 
 import { Scanner } from '@yudiel/react-qr-scanner'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
+import { pb } from '@/lib/pocketbase'
+import { canUseQrScanner } from '@/lib/roles'
 
 export default function ScannerSheetPage() {
+  const router = useRouter()
   const bloqueadoRef = useRef(false)
   const ultimoCodigoRef = useRef('')
   const ultimoTempoRef = useRef(0)
 
   const [mensagem, setMensagem] = useState<string | null>(null)
+
+  useEffect(() => {
+    const model = pb.authStore.model as { role?: string } | null
+
+    if (!pb.authStore.isValid) {
+      router.replace('/login')
+      return
+    }
+
+    if (!canUseQrScanner(model?.role)) {
+      router.replace('/dashboard')
+    }
+  }, [router])
 
   function toast(texto: string) {
     setMensagem(texto)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
@@ -12,39 +12,42 @@ import {
 } from "lucide-react";
 
 import { pb } from "@/lib/pocketbase";
+import {
+  canCheckCarrinhos,
+  canManageEquipamentos,
+  canUseQrScanner,
+  canViewAdminReports,
+  canViewAllAgendamentos,
+} from "@/lib/roles";
 import ServiceCard from "@/components/ServiceCard";
 import HeaderDashboard from "@/components/HeaderDashboard";
 
+function subscribe(callback: () => void) {
+  return pb.authStore.onChange(() => {
+    callback();
+  });
+}
+
+function getRoleSnapshot() {
+  const model = pb.authStore.model as { role?: string } | null;
+  return model?.role || "";
+}
+
 export default function Dashboard() {
   const router = useRouter();
-
-  const [mounted, setMounted] = useState(false);
-  const [role, setRole] = useState<string>("");
+  const role = useSyncExternalStore(subscribe, getRoleSnapshot, () => "");
 
   useEffect(() => {
     if (!pb.authStore.isValid) {
       router.replace("/login");
-      return;
     }
-
-    const model = pb.authStore.model as { role?: string } | null;
-    setRole(model?.role || "");
-    setMounted(true);
   }, [router]);
 
-  if (!mounted) {
-    return (
-      <>
-        <HeaderDashboard />
-        <div className="max-w-5xl mx-auto py-16 text-center text-gray-500">
-          Carregando...
-        </div>
-      </>
-    );
-  }
-
-  const isAdmin = role === "admin";
-  const isEstagiario = role.includes("estagiario");
+  const canManageAgenda = canViewAllAgendamentos(role);
+  const canManageEquipments = canManageEquipamentos(role);
+  const canDoCarrinhoCheck = canCheckCarrinhos(role);
+  const canSeeReports = canViewAdminReports(role);
+  const canSeeScanner = canUseQrScanner(role);
 
   return (
     <>
@@ -52,7 +55,7 @@ export default function Dashboard() {
 
       <div className="max-w-5xl mx-auto py-16 px-4">
         <h2 className="text-3xl font-bold text-center mb-10">
-          Escolha o serviço
+          Escolha o servico
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -68,21 +71,23 @@ export default function Dashboard() {
             href="/agendamentos/novo"
           />
 
-          {isAdmin ? (
-            <ServiceCard
-              title="Equipamentos"
-              icon={<Wrench size={48} />}
-              href="/admin/equipamentos"
-            />
-          ) : !isEstagiario ? (
+          {canManageAgenda && (
             <ServiceCard
               title="Agenda geral"
               icon={<CalendarDays size={48} />}
               href="/agendamentos/agenda"
             />
-          ) : null}
+          )}
 
-          {(isAdmin || isEstagiario) && (
+          {canManageEquipments && (
+            <ServiceCard
+              title="Equipamentos"
+              icon={<Wrench size={48} />}
+              href="/admin/equipamentos"
+            />
+          )}
+
+          {canDoCarrinhoCheck && (
             <ServiceCard
               title="Carrinhos"
               icon={<Package2 size={48} />}
@@ -90,15 +95,15 @@ export default function Dashboard() {
             />
           )}
 
-          {isAdmin && (
+          {canSeeReports && (
             <ServiceCard
-              title="Relatórios de checagem"
+              title="Relatorios de checagem"
               icon={<ClipboardList size={48} />}
               href="/admin/checagens"
             />
           )}
 
-          {isAdmin && (
+          {canSeeScanner && (
             <ServiceCard
               title="Ler QR Code dos Chromebooks"
               icon={<QrCode size={48} />}

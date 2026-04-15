@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { pb } from '@/lib/pocketbase'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
+import { canViewAllAgendamentos } from '@/lib/roles'
 
 type Chromebook = {
   id: string
@@ -16,7 +17,7 @@ type Usuario = {
   id: string
   name?: string
   email?: string
-  role?: 'admin' | 'professor'
+  role?: string
 }
 
 type Agendamento = {
@@ -133,7 +134,7 @@ export default function EditarAgendamentoAdmin() {
       return
     }
 
-    if (role !== 'admin') {
+    if (!canViewAllAgendamentos(role)) {
       router.push('/agendamentos/meus')
       return
     }
@@ -181,7 +182,7 @@ export default function EditarAgendamentoAdmin() {
 
   useEffect(() => {
     if (!authReady) return
-    if (role !== 'admin') return
+    if (!canViewAllAgendamentos(role)) return
     carregarTudo()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, role, id])
@@ -307,7 +308,7 @@ export default function EditarAgendamentoAdmin() {
 
       <main className="max-w-4xl mx-auto px-4 py-10">
         <div className="flex items-center justify-between gap-4 mb-6">
-          <h1 className="text-3xl font-bold">Editar agendamento (Admin)</h1>
+          <h1 className="text-3xl font-bold">Editar agendamento</h1>
 
           <button
             onClick={() => router.push('/agendamentos/meus')}

@@ -1,13 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import HeaderDashboard from "@/components/HeaderDashboard";
+import { pb } from "@/lib/pocketbase";
+import { canCheckCarrinhos } from "@/lib/roles";
 
 export default function CarrinhosPage() {
   const router = useRouter();
 
   const carrinhos = [1, 2, 3, 4, 5];
+
+  useEffect(() => {
+    const model = pb.authStore.model as { role?: string } | null;
+
+    if (!pb.authStore.isValid) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!canCheckCarrinhos(model?.role)) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   return (
     <>

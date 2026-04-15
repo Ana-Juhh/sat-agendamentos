@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ClipboardList, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
+import { canViewAdminReports } from "@/lib/roles";
 
 type Relatorio = {
   id: string;
@@ -59,7 +60,7 @@ export default function RelatoriosChecagemPage() {
       return;
     }
 
-    if (model?.role !== "admin") {
+    if (!canViewAdminReports(model?.role)) {
       router.replace("/dashboard");
       return;
     }

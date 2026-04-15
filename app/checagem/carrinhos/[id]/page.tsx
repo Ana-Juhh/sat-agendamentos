@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle, ListChecks } from "lucide-react";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
+import { canCheckCarrinhos, canViewAdminReports } from "@/lib/roles";
 
 type Chromebook = {
   id: string;
@@ -43,8 +44,18 @@ export default function CarrinhoPage() {
   const user = pb.authStore.model as { id?: string; role?: string } | null;
 
   useEffect(() => {
+    if (!pb.authStore.isValid) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!canCheckCarrinhos(user?.role)) {
+      router.replace("/dashboard");
+      return;
+    }
+
     carregar();
-  }, [carrinhoId]);
+  }, [carrinhoId, router, user?.role]);
 
   async function carregar() {
     try {
@@ -183,7 +194,7 @@ export default function CarrinhoPage() {
       }
 
       if (acao === "finalizar") {
-        router.push("/admin/checagens");
+        router.push(canViewAdminReports(user?.role) ? "/admin/checagens" : "/checagem/carrinhos");
         return;
       }
     } catch (err) {

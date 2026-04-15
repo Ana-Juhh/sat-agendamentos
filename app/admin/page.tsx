@@ -6,6 +6,7 @@ import { pb } from '@/lib/pocketbase'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
 import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
+import { canViewAllAgendamentos } from '@/lib/roles'
 
 type Chromebook = {
   id: string
@@ -71,7 +72,7 @@ export default function AdminPage() {
       return
     }
 
-    if (model?.role !== 'admin') {
+    if (!canViewAllAgendamentos(model?.role)) {
       router.replace('/dashboard')
       return
     }
@@ -178,7 +179,7 @@ export default function AdminPage() {
       <HeaderDashboard />
 
       <div className="max-w-6xl mx-auto py-16 px-4">
-        <h1 className="text-3xl font-bold mb-8 text-center">Agenda geral (Admin)</h1>
+        <h1 className="text-3xl font-bold mb-8 text-center">Agenda geral</h1>
 
         {agendamentos.length === 0 ? (
           <p className="text-center text-gray-500">Nenhum agendamento encontrado</p>

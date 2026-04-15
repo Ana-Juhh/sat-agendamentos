@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
+import { canManageEquipamentos } from "@/lib/roles";
 
 type ChromebookStatus =
   | "disponivel"
@@ -62,7 +63,7 @@ export default function AdminEquipamentosPage() {
       return;
     }
 
-    if (model?.role !== "admin") {
+    if (!canManageEquipamentos(model?.role)) {
       router.replace("/dashboard");
       return;
     }

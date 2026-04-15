@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { pb } from '@/lib/pocketbase'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
+import { canViewAllAgendamentos } from '@/lib/roles'
 
 type Chromebook = {
   id: string
@@ -16,7 +17,7 @@ type Usuario = {
   id: string
   name?: string
   email?: string
-  role?: 'admin' | 'professor'
+  role?: string
 }
 
 type Agendamento = {
@@ -37,6 +38,13 @@ type Agendamento = {
     chromebooks?: Chromebook[]
     chromebooks_devolvidos?: Chromebook[]
   }
+}
+
+type PocketBaseError = {
+  data?: {
+    message?: string
+  }
+  message?: string
 }
 
 function normalizarDataISO(v: string) {
@@ -66,7 +74,7 @@ export default function DevolucaoAgendamentoPage() {
   const [devolvidosSelecionados, setDevolvidosSelecionados] = useState<string[]>([])
 
   useEffect(() => {
-    const model: any = pb.authStore.model
+    const model = pb.authStore.model as { role?: string } | null
     setRole(model?.role ?? null)
     setAuthReady(true)
   }, [])
@@ -79,7 +87,7 @@ export default function DevolucaoAgendamentoPage() {
       return
     }
 
-    if (role !== 'admin') {
+    if (!canViewAllAgendamentos(role)) {
       router.push('/dashboard')
       return
     }
@@ -108,7 +116,7 @@ export default function DevolucaoAgendamentoPage() {
       setDevolvidosSelecionados(devolvidosIds)
     } catch (e) {
       console.error(e)
-      alert('Erro ao carregar devolução')
+      alert('Erro ao carregar devolucao')
       router.push('/admin')
     } finally {
       setCarregando(false)
@@ -120,18 +128,18 @@ export default function DevolucaoAgendamentoPage() {
   }, [agendamento])
 
   const nomeUsuario = useMemo(() => {
-    if (!agendamento) return '—'
+    if (!agendamento) return '-'
     return (
       agendamento.expand?.usuario?.name ||
       agendamento.expand?.usuario?.email ||
-      'Usuário sem nome'
+      'Usuario sem nome'
     )
   }, [agendamento])
 
   function toggleDevolvido(chromeId: string) {
     setDevolvidosSelecionados((prev) => {
       if (prev.includes(chromeId)) {
-        return prev.filter((id) => id !== chromeId)
+        return prev.filter((itemId) => itemId !== chromeId)
       }
       return [...prev, chromeId]
     })
@@ -160,11 +168,12 @@ export default function DevolucaoAgendamentoPage() {
         status_entrega: statusEntrega,
       })
 
-      alert('Devolução atualizada ✅')
+      alert('Devolucao atualizada')
       router.push('/admin')
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const erro = e as PocketBaseError
       console.error(e)
-      alert(e?.data?.message || e?.message || 'Erro ao salvar devolução')
+      alert(erro?.data?.message || erro?.message || 'Erro ao salvar devolucao')
     } finally {
       setSalvando(false)
     }
@@ -176,7 +185,7 @@ export default function DevolucaoAgendamentoPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-10">
         <div className="flex items-center justify-between gap-4 mb-6">
-          <h1 className="text-3xl font-bold">Devolução de Chromebooks</h1>
+          <h1 className="text-3xl font-bold">Devolucao de Chromebooks</h1>
 
           <button
             onClick={() => router.push('/admin')}
@@ -201,29 +210,29 @@ export default function DevolucaoAgendamentoPage() {
                 <b>Turma:</b>{' '}
                 {agendamento.turma
                   ? `${agendamento.turma}${agendamento.classe ? ` ${agendamento.classe}` : ''}`
-                  : '—'}
+                  : '-'}
               </div>
               {agendamento.observacoes && (
                 <div>
-                  <b>Observações:</b> {agendamento.observacoes}
+                  <b>Observacoes:</b> {agendamento.observacoes}
                 </div>
               )}
             </div>
 
             <div>
               <h2 className="text-lg font-semibold mb-3">
-                Marque os chromebooks que já foram devolvidos
+                Marque os chromebooks que ja foram devolvidos
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {chromesReservados.map((c) => {
-                  const marcado = devolvidosSelecionados.includes(c.id)
+                {chromesReservados.map((chromebook) => {
+                  const marcado = devolvidosSelecionados.includes(chromebook.id)
 
                   return (
                     <button
-                      key={c.id}
+                      key={chromebook.id}
                       type="button"
-                      onClick={() => toggleDevolvido(c.id)}
+                      onClick={() => toggleDevolvido(chromebook.id)}
                       className={`border rounded-xl p-4 text-left transition ${
                         marcado
                           ? 'border-green-500 bg-green-50'
@@ -232,14 +241,14 @@ export default function DevolucaoAgendamentoPage() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-semibold">{c.codigo || c.id}</p>
+                          <p className="font-semibold">{chromebook.codigo || chromebook.id}</p>
                           <p className="text-sm text-gray-500">
-                            {marcado ? 'Marcado como devolvido' : 'Ainda não devolvido'}
+                            {marcado ? 'Marcado como devolvido' : 'Ainda nao devolvido'}
                           </p>
                         </div>
 
                         <div className="text-2xl">
-                          {marcado ? '✅' : '⬜'}
+                          {marcado ? 'OK' : '[]'}
                         </div>
                       </div>
                     </button>
@@ -274,7 +283,7 @@ export default function DevolucaoAgendamentoPage() {
                 disabled={salvando}
                 className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition disabled:opacity-50"
               >
-                {salvando ? 'Salvando...' : 'Salvar devolução'}
+                {salvando ? 'Salvando...' : 'Salvar devolucao'}
               </button>
             </div>
           </div>

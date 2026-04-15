@@ -6,6 +6,7 @@ import { pb } from '@/lib/pocketbase'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
 import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
+import { canViewAllAgendamentos } from '@/lib/roles'
 
 type Chromebook = {
   id: string
@@ -17,7 +18,7 @@ type User = {
   id: string
   name?: string
   email?: string
-  role?: 'admin' | 'professor'
+  role?: string
 }
 
 type BaseAgendamento = {
@@ -68,10 +69,10 @@ export default function MeusAgendamentos() {
   const [carregando, setCarregando] = useState(true)
   const [authReady, setAuthReady] = useState(false)
   const [usuarioId, setUsuarioId] = useState<string | null>(null)
-  const [role, setRole] = useState<'admin' | 'professor' | null>(null)
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
-    const model = pb.authStore.model as { id?: string; role?: 'admin' | 'professor' } | null
+    const model = pb.authStore.model as { id?: string; role?: string } | null
     setUsuarioId(model?.id ?? null)
     setRole(model?.role ?? null)
     setAuthReady(true)
@@ -86,10 +87,9 @@ export default function MeusAgendamentos() {
         return
       }
 
-      const filter =
-        role === 'admin'
-          ? `status = "ativo"`
-          : `usuario = "${usuarioId}" && status = "ativo"`
+      const filter = canViewAllAgendamentos(role)
+        ? `status = "ativo"`
+        : `usuario = "${usuarioId}" && status = "ativo"`
 
       const [chromebooks, espacos] = await Promise.all([
         pb.collection(AG_COLLECTION).getFullList<BaseAgendamento>({
@@ -187,7 +187,11 @@ export default function MeusAgendamentos() {
 
       <main className="max-w-5xl mx-auto px-4 py-10">
         <h1 className="text-3xl font-bold mb-8 text-center">
-          {!authReady ? 'Carregando...' : role === 'admin' ? 'Agendamentos (Admin)' : 'Meus Agendamentos'}
+          {!authReady
+            ? 'Carregando...'
+            : canViewAllAgendamentos(role)
+              ? 'Todos os agendamentos'
+              : 'Meus Agendamentos'}
         </h1>
 
         {carregando ? (
@@ -232,7 +236,7 @@ export default function MeusAgendamentos() {
                         className="flex justify-between items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition"
                       >
                         <div className="min-w-0 flex-1">
-                          {role === 'admin' && (
+                          {canViewAllAgendamentos(role) && (
                             <p className="text-xs text-gray-500 mb-1 truncate">{nomeUsuario}</p>
                           )}
 
@@ -271,7 +275,7 @@ export default function MeusAgendamentos() {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap justify-end">
-                          {role === 'admin' && isChromebooks && (
+                          {canViewAllAgendamentos(role) && isChromebooks && (
                             <>
                               <button
                                 onClick={() => editarAgendamento(a.id)}

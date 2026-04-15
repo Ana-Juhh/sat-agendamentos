@@ -161,8 +161,7 @@ export default function NovoAgendamentoChromebooks() {
 
   async function buscarIdsOcupadosNoHorario(dataISO: string, inicioMin: number, fimMin: number) {
     const reservas = await pb.collection(AG_COLLECTION).getFullList<ReservaChromebook>({
-      filter:
-        `status = "ativo" && inicio < ${fimMin} && fim > ${inicioMin}`,
+      filter: `status = "ativo" && inicio < ${fimMin} && fim > ${inicioMin}`,
       expand: 'chromebooks',
       sort: 'data,inicio',
       requestKey: null,
@@ -173,14 +172,13 @@ export default function NovoAgendamentoChromebooks() {
         reservas
           .filter((r) => normalizarDataISO(r.data || '') === dataISO)
           .flatMap((r) => {
-          const idsExpand = r.expand?.chromebooks?.map((c) => c.id) ?? []
-          const idsRaw = r.chromebooks ?? []
-          return idsExpand.length ? idsExpand : idsRaw
+            const idsExpand = r.expand?.chromebooks?.map((c) => c.id) ?? []
+            const idsRaw = r.chromebooks ?? []
+            return idsExpand.length ? idsExpand : idsRaw
           })
       )
     )
   }
-
   useEffect(() => {
     setChromebookIds((prev) => prev.filter((id) => !ocupadosNoHorario.includes(id)))
   }, [ocupadosNoHorario])

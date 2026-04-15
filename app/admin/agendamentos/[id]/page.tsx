@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { pb } from '@/lib/pocketbase'
@@ -70,6 +70,32 @@ function normalizarDataISO(v: string) {
   return v.slice(0, 10)
 }
 
+async function buscarIdsOcupadosNoHorarioEdicao(
+  dataISO: string,
+  inicioMin: number,
+  fimMin: number,
+  agendamentoIdAtual: string
+) {
+  const reservas = await pb.collection(AG_COLLECTION).getFullList<Agendamento>({
+    filter: `status = "ativo" && id != "${agendamentoIdAtual}" && inicio < ${fimMin} && fim > ${inicioMin}`,
+    expand: 'chromebooks',
+    sort: 'data,inicio',
+    requestKey: null,
+  })
+
+  return Array.from(
+    new Set(
+      reservas
+        .filter((r) => normalizarDataISO(r.data || '') === dataISO)
+        .flatMap((r) => {
+          const idsExpand = r.expand?.chromebooks?.map((c) => c.id) ?? []
+          const idsRaw = r.chromebooks ?? []
+          return idsExpand.length ? idsExpand : idsRaw
+        })
+    )
+  )
+}
+
 export default function EditarAgendamentoAdmin() {
   const params = useParams<{ id: string }>()
   const id = params?.id
@@ -94,7 +120,7 @@ export default function EditarAgendamentoAdmin() {
   const [observacoes, setObservacoes] = useState('')
 
   useEffect(() => {
-    const model: any = pb.authStore.model
+    const model = pb.authStore.model as { role?: string } | null
     setRole(model?.role ?? null)
     setAuthReady(true)
   }, [])
@@ -124,6 +150,7 @@ export default function EditarAgendamentoAdmin() {
           expand: 'usuario,chromebooks',
         }),
         pb.collection('chromebooks').getFullList<Chromebook>({
+          filter: 'tipo = "agendamento"',
           sort: 'codigo',
         }),
       ])
@@ -158,7 +185,6 @@ export default function EditarAgendamentoAdmin() {
     carregarTudo()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, role, id])
-
 
   const opcoesClasse = turma ? TURMAS_CONFIG[turma] || [] : []
   const classeObrigatoria = opcoesClasse.length > 0
@@ -213,6 +239,26 @@ export default function EditarAgendamentoAdmin() {
 
     setSalvando(true)
     try {
+      const idsOcupados = await buscarIdsOcupadosNoHorarioEdicao(
+        dataISO,
+        inicioMin,
+        fimMin,
+        ag.id
+      )
+
+      const idsEmConflito = selecionados.filter((id) => idsOcupados.includes(id))
+
+      if (idsEmConflito.length > 0) {
+        const codigosEmConflito = todosChromes
+          .filter((c) => idsEmConflito.includes(c.id))
+          .map((c) => c.codigo || c.id)
+
+        alert(
+          `Os seguintes Chromebooks já estão reservados nesse horário: ${codigosEmConflito.join(', ')}.`
+        )
+        return
+      }
+
       const payload = {
         data: dataISO,
         inicio: inicioMin,
@@ -228,9 +274,10 @@ export default function EditarAgendamentoAdmin() {
 
       alert('Agendamento atualizado ✅')
       router.push('/agendamentos/meus')
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const erro = e as { data?: { message?: string }; message?: string }
       console.error(e)
-      alert(e?.data?.message || e?.message || 'Erro ao salvar')
+      alert(erro?.data?.message || erro?.message || 'Erro ao salvar')
     } finally {
       setSalvando(false)
     }
@@ -245,9 +292,10 @@ export default function EditarAgendamentoAdmin() {
       await pb.collection(AG_COLLECTION).update(ag.id, { status: 'cancelado' })
       alert('Agendamento cancelado ✅')
       router.push('/agendamentos/meus')
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const erro = e as { data?: { message?: string }; message?: string }
       console.error(e)
-      alert(e?.data?.message || e?.message || 'Erro ao cancelar')
+      alert(erro?.data?.message || erro?.message || 'Erro ao cancelar')
     } finally {
       setSalvando(false)
     }

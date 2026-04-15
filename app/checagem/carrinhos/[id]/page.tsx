@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CheckCircle2, AlertTriangle, Save, ListChecks } from "lucide-react";
+import { CheckCircle2, AlertTriangle, ListChecks } from "lucide-react";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
 
@@ -32,6 +32,7 @@ type FormItem = {
 
 export default function CarrinhoPage() {
   const params = useParams();
+  const router = useRouter();
   const carrinhoId = params.id as string;
 
   const [chromebooks, setChromebooks] = useState<Chromebook[]>([]);
@@ -168,21 +169,21 @@ export default function CarrinhoPage() {
       const proximo = carrinhoAtual + 1;
 
       if (acao === "voltar") {
-        window.location.href = "/checagem/carrinhos";
+        router.push("/checagem/carrinhos");
         return;
       }
 
       if (acao === "proximo") {
         if (proximo <= 5) {
-          window.location.href = `/checagem/carrinhos/${proximo}`;
+          router.push(`/checagem/carrinhos/${proximo}`);
         } else {
-          window.location.href = "/checagem/carrinhos";
+          router.push("/checagem/carrinhos");
         }
         return;
       }
 
       if (acao === "finalizar") {
-        window.location.href = "/admin/checagens";
+        router.push("/admin/checagens");
         return;
       }
     } catch (err) {
@@ -211,6 +212,16 @@ export default function CarrinhoPage() {
       <HeaderDashboard />
 
       <div className="max-w-5xl mx-auto py-12 px-4">
+        <div className="mb-6">
+          <button
+            onClick={() => router.push("/checagem/carrinhos")}
+            type="button"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium transition"
+          >
+            ← Voltar para carrinhos
+          </button>
+        </div>
+
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-900">
             Carrinho {carrinhoId}

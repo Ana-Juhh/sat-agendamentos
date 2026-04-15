@@ -2,23 +2,23 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import { pb } from '@/lib/pocketbase'
-import Image from 'next/image'
+import ThemeToggle from '@/components/ThemeToggle';
+
+function subscribe(callback: () => void) {
+  return pb.authStore.onChange(() => {
+    callback()
+  })
+}
+
+function getAdminSnapshot() {
+  return !!pb.authStore.model?.isAdmin
+}
 
 export default function HeaderDashboard() {
   const router = useRouter()
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  useEffect(() => {
-    setIsAdmin(!!pb.authStore.model?.isAdmin)
-
-    const unsubscribe = pb.authStore.onChange(() => {
-      setIsAdmin(!!pb.authStore.model?.isAdmin)
-    })
-
-    return () => unsubscribe()
-  }, [])
+  const isAdmin = useSyncExternalStore(subscribe, getAdminSnapshot, () => false)
 
   function handleLogout() {
     pb.authStore.clear()
@@ -51,6 +51,8 @@ export default function HeaderDashboard() {
                 Admin
               </Link>
             )}
+
+            <ThemeToggle variant="inline" />
 
             <button
   onClick={handleLogout}

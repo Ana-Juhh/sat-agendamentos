@@ -31,7 +31,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="relative flex min-h-screen bg-white">
       <div className="mx-auto flex w-full max-w-7xl flex-col justify-center gap-8 px-5 py-8 sm:px-6 md:gap-10 md:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="relative order-1 flex w-full min-w-0 flex-1 items-center justify-center overflow-visible lg:order-2 lg:justify-end">
           <div className="relative z-10 w-full max-w-[14rem] rounded-[2rem] bg-white sm:max-w-[18rem] md:max-w-[22rem] lg:max-w-[min(30rem,34vw)] xl:max-w-[min(32rem,36vw)]">

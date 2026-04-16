@@ -9,6 +9,7 @@ import {
   Package2,
   ClipboardList,
   QrCode,
+  Users,
 } from "lucide-react";
 
 import { pb } from "@/lib/pocketbase";
@@ -18,6 +19,7 @@ import {
   canUseQrScanner,
   canViewAdminReports,
   canViewAllAgendamentos,
+  isSuperAdmin,
 } from "@/lib/roles";
 import ServiceCard from "@/components/ServiceCard";
 import HeaderDashboard from "@/components/HeaderDashboard";
@@ -48,6 +50,7 @@ export default function Dashboard() {
   const canDoCarrinhoCheck = canCheckCarrinhos(role);
   const canSeeReports = canViewAdminReports(role);
   const canSeeScanner = canUseQrScanner(role);
+  const canManageUsers = isSuperAdmin(role);
 
   return (
     <>
@@ -55,7 +58,7 @@ export default function Dashboard() {
 
       <div className="max-w-5xl mx-auto py-16 px-4">
         <h2 className="text-3xl font-bold text-center mb-10">
-          Escolha o servico
+          Escolha o serviço
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -97,7 +100,7 @@ export default function Dashboard() {
 
           {canSeeReports && (
             <ServiceCard
-              title="Relatorios de checagem"
+              title="Relatórios de checagem"
               icon={<ClipboardList size={48} />}
               href="/admin/checagens"
             />
@@ -108,6 +111,14 @@ export default function Dashboard() {
               title="Ler QR Code dos Chromebooks"
               icon={<QrCode size={48} />}
               href="/dashboard/scanner"
+            />
+          )}
+
+          {canManageUsers && (
+            <ServiceCard
+              title="Usuários"
+              icon={<Users size={48} />}
+              href="/admin/usuarios"
             />
           )}
         </div>

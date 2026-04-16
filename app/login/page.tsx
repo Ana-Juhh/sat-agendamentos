@@ -6,6 +6,7 @@ import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL!);
 
+
 export default function LoginPage() {
   const loginWithGoogle = async () => {
     try {

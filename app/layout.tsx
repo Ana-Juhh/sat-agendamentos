@@ -1,11 +1,9 @@
 import './globals.css';
-import ThemeScript from '@/components/ThemeScript';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning data-theme="light">
       <body className="bg-white text-gray-900">
-        <ThemeScript />
         {children}
       </body>
     </html>

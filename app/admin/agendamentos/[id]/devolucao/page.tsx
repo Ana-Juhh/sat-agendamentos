@@ -6,7 +6,8 @@ import HeaderDashboard from '@/components/HeaderDashboard'
 import { pb } from '@/lib/pocketbase'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
 import { canViewAllAgendamentos } from '@/lib/roles'
-
+import BackButton from "@/components/BackButton";
+<BackButton href="/dashboard" />
 type Chromebook = {
   id: string
   codigo?: string

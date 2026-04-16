@@ -81,7 +81,7 @@ export default function CarrinhoPage() {
 
       setFormData(inicial);
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao carregar chromebooks:", err);
       alert("Erro ao carregar chromebooks");
     } finally {
       setLoading(false);
@@ -131,6 +131,16 @@ export default function CarrinhoPage() {
     try {
       setSalvando(true);
 
+      if (!user?.id) {
+        alert("Usuário não identificado. Faça login novamente.");
+        return;
+      }
+
+      if (!carrinhoId) {
+        alert("Carrinho inválido.");
+        return;
+      }
+
       const agora = new Date();
       const hora = agora.getHours();
       const turno = hora < 13 ? "manha" : "tarde";
@@ -145,16 +155,27 @@ export default function CarrinhoPage() {
         (d) => d.mostrarProblema && d.status !== "ok"
       ).length;
 
-      const relatorio = await pb.collection("relatorios_checagem").create({
-        carrinho: carrinhoId,
+      console.log("DADOS RELATORIO:", {
+        carrinho: String(carrinhoId),
         turno,
-        verificadoPor: user?.id,
+        verificadoPor: user.id,
         verificadoEm: agora.toISOString(),
         dataReferencia: agora.toISOString(),
         totalChromebooks,
         totalVerificados,
         totalComProblema,
       });
+
+     const relatorio = await pb.collection("relatorios_checagem").create({
+  carrinho: String(carrinhoId),
+  turno,
+  verificadoPor: user.id,
+  verificadoEm: agora.toISOString(),
+  dataReferencia: agora.toISOString().slice(0, 10),
+  totalChromebooks: Number(totalChromebooks),
+  totalVerificados: Number(totalVerificados),
+  totalComProblema: Number(totalComProblema),
+});
 
       for (const chrome of chromebooks) {
         const dados = formData[chrome.id];
@@ -165,7 +186,7 @@ export default function CarrinhoPage() {
         form.append("chromebook", chrome.id);
         form.append("verificado", String(dados.verificado));
         form.append("statusEncontrado", dados.status);
-        form.append("observacao", dados.observacao);
+        form.append("observacao", dados.observacao || "");
 
         if (dados.foto) {
           form.append("foto", dados.foto);
@@ -194,11 +215,16 @@ export default function CarrinhoPage() {
       }
 
       if (acao === "finalizar") {
-        router.push(canViewAdminReports(user?.role) ? "/admin/checagens" : "/checagem/carrinhos");
-        return;
+        router.push(
+          canViewAdminReports(user?.role)
+            ? "/admin/checagens"
+            : "/checagem/carrinhos"
+        );
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Erro ao salvar checagem:", err);
+      console.error("PocketBase response:", err?.response);
+      console.error("PocketBase data:", err?.response?.data);
       alert("Erro ao salvar checagem");
     } finally {
       setSalvando(false);
@@ -238,7 +264,8 @@ export default function CarrinhoPage() {
             Carrinho {carrinhoId}
           </h1>
           <p className="text-gray-500 mt-2">
-            Marque os chromebooks verificados e relate problemas apenas quando necessário.
+            Marque os chromebooks verificados e relate problemas apenas quando
+            necessário.
           </p>
         </div>
 
@@ -247,7 +274,8 @@ export default function CarrinhoPage() {
             <div className="flex items-center gap-3 text-gray-600">
               <ListChecks size={20} />
               <span className="font-medium">
-                {chromebooks.length} chromebook{chromebooks.length === 1 ? "" : "s"} neste carrinho
+                {chromebooks.length} chromebook
+                {chromebooks.length === 1 ? "" : "s"} neste carrinho
               </span>
             </div>
 
@@ -361,7 +389,11 @@ export default function CarrinhoPage() {
                           type="file"
                           accept="image/*"
                           onChange={(e) =>
-                            atualizarCampo(c.id, "foto", e.target.files?.[0] || null)
+                            atualizarCampo(
+                              c.id,
+                              "foto",
+                              e.target.files?.[0] || null
+                            )
                           }
                           className="w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white file:mr-4 file:rounded-xl file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700"
                         />

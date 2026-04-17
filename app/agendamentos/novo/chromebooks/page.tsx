@@ -42,7 +42,7 @@ const TURMAS_CONFIG: Record<string, string[]> = {
   '1ª série': ['A', 'B'],
   '2ª série': ['A', 'B'],
   '3ª série': ['A', 'B'],
-  'Bilíngue': ['Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6', 'Y8', 'Y9', 'K2', 'K3', 'Hs2', 'Hs3'],
+  Bilíngue: ['Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6', 'Y8', 'Y9', 'K2', 'K3', 'Hs2', 'Hs3'],
 }
 
 function horaParaMinutos(hora: string) {
@@ -97,10 +97,12 @@ export default function NovoAgendamentoChromebooks() {
     async function carregarChromebooks() {
       try {
         setCarregandoChromes(true)
-        const lista = await pb.collection("chromebooks").getFullList({
+
+        const lista = await pb.collection('chromebooks').getFullList<Chromebook>({
           filter: 'tipo = "agendamento"',
-          sort: "codigo",
-        });
+          sort: 'codigo',
+        })
+
         setChromebooks(lista)
       } catch (e) {
         console.error(e)
@@ -110,7 +112,7 @@ export default function NovoAgendamentoChromebooks() {
       }
     }
 
-    carregarChromebooks()
+    void carregarChromebooks()
   }, [router])
 
   const selecionados = useMemo(() => {
@@ -176,10 +178,11 @@ export default function NovoAgendamentoChromebooks() {
             const idsExpand = r.expand?.chromebooks?.map((c) => c.id) ?? []
             const idsRaw = r.chromebooks ?? []
             return idsExpand.length ? idsExpand : idsRaw
-          })
-      )
+          }),
+      ),
     )
   }
+
   useEffect(() => {
     setChromebookIds((prev) => prev.filter((id) => !ocupadosNoHorario.includes(id)))
   }, [ocupadosNoHorario])
@@ -285,7 +288,7 @@ export default function NovoAgendamentoChromebooks() {
           .map((c) => c.codigo ?? c.id)
 
         alert(
-          `Os seguintes Chromebooks já estão reservados nesse horário: ${codigosEmConflito.join(', ')}.`
+          `Os seguintes Chromebooks já estão reservados nesse horário: ${codigosEmConflito.join(', ')}.`,
         )
         return
       }
@@ -294,7 +297,7 @@ export default function NovoAgendamentoChromebooks() {
 
       const idsOcupadosConfirmados = await buscarIdsOcupadosNoHorario(dataISO, inicioMin, fimMin)
       const idsEmConflitoConfirmados = chromebookIds.filter((id) =>
-        idsOcupadosConfirmados.includes(id)
+        idsOcupadosConfirmados.includes(id),
       )
 
       if (idsEmConflitoConfirmados.length > 0) {
@@ -305,7 +308,7 @@ export default function NovoAgendamentoChromebooks() {
           .map((c) => c.codigo ?? c.id)
 
         alert(
-          `Os seguintes Chromebooks já estão reservados nesse horário: ${codigosEmConflito.join(', ')}.`
+          `Os seguintes Chromebooks já estão reservados nesse horário: ${codigosEmConflito.join(', ')}.`,
         )
         return
       }
@@ -331,7 +334,7 @@ export default function NovoAgendamentoChromebooks() {
         erro?.data?.message ||
           erro?.message ||
           JSON.stringify(erro?.data) ||
-          'Erro ao salvar'
+          'Erro ao salvar',
       )
     } finally {
       setLoading(false)
@@ -343,7 +346,7 @@ export default function NovoAgendamentoChromebooks() {
       <HeaderDashboard />
 
       <div className="max-w-3xl mx-auto py-16">
-         <BackButton href="/agendamentos/novo" />
+        <BackButton href="/agendamentos/novo" />
         <h1 className="text-3xl font-bold mb-10 text-center">Novo agendamento</h1>
 
         <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-2xl p-8 space-y-6">

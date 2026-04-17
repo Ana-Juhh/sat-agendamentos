@@ -165,6 +165,7 @@ export default function RelatoriosChecagemPage() {
       <HeaderDashboard />
 
       <div className="max-w-6xl mx-auto py-12 px-4">
+         <BackButton href="/admin" />
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-900">Relatórios de checagem</h1>
           <p className="text-gray-500 mt-2">
@@ -239,7 +240,7 @@ export default function RelatoriosChecagemPage() {
                           </p>
                         </div>
 
-                        <div className="bg-red-50 rounded-2xl px-4 py-3 text-center">
+                        <div className="bg-purple-100/70 text-purple-800 rounded-2xl px-4 py-3 text-center">
                           <p className="text-xs text-red-700">Problemas</p>
                           <p className="text-xl font-bold text-red-700">
                             {relatorio.totalComProblema || 0}

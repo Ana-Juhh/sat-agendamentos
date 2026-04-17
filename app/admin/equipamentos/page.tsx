@@ -576,7 +576,7 @@ export default function AdminEquipamentosPage() {
                         </span>
 
                         {chrome.tipo === "carrinho" && (
-                          <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-purple-50 text-purple-700">
+                          <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-purple-100/70 text-purple-800">
                             Carrinho {chrome.carrinho || "-"} • Posição {chrome.posicao ?? "-"}
                           </span>
                         )}

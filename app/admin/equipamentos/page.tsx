@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
 import { canManageEquipamentos } from "@/lib/roles";
+import BackButton from "@/components/BackButton";
 
 type ChromebookStatus =
   | "disponivel"
@@ -308,6 +309,7 @@ export default function AdminEquipamentosPage() {
       <HeaderDashboard />
 
       <div className="max-w-6xl mx-auto py-16 px-4">
+       <BackButton href="/admin" />
         <h1 className="text-3xl font-bold mb-8 text-center">Gerenciar Equipamentos</h1>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">

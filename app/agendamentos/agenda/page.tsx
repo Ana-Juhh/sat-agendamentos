@@ -14,6 +14,7 @@ import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
 import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
 import { canViewAllAgendamentos } from '@/lib/roles'
+import BackButton from '@/components/BackButton'
 
 type User = {
   id: string
@@ -190,6 +191,7 @@ export default function Agenda() {
       <HeaderDashboard />
 
       <div className="max-w-6xl mx-auto p-6">
+        <BackButton href="/dashboard" />
         <div className="bg-white rounded-2xl shadow p-6 mb-6">
           <h1 className="text-3xl font-bold mb-3">Agenda geral</h1>
           <p className="text-sm text-gray-600">

@@ -7,6 +7,7 @@ import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
 import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
 import { canViewAllAgendamentos } from '@/lib/roles'
+import BackButton from '@/components/BackButton'
 
 type Chromebook = {
   id: string
@@ -186,6 +187,7 @@ export default function MeusAgendamentos() {
       <HeaderDashboard />
 
       <main className="max-w-5xl mx-auto px-4 py-10">
+        <BackButton href="/dashboard" />
         <h1 className="text-3xl font-bold mb-8 text-center">
           {!authReady
             ? 'Carregando...'

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { pb } from '@/lib/pocketbase'
 import { canUseQrScanner } from '@/lib/roles'
+import BackButton from '@/components/BackButton'
 
 export default function ScannerSheetPage() {
   const router = useRouter()
@@ -65,7 +66,7 @@ export default function ScannerSheetPage() {
   return (
     <>
       <HeaderDashboard />
-
+      <BackButton href="/dashboard" />
       <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-xl shadow">
         <h1 className="text-xl font-bold mb-4 text-center">
           📷 Leitura de QR Code

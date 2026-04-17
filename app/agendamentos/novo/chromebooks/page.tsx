@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { pb } from '@/lib/pocketbase'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
+import BackButton from '@/components/BackButton'
 
 type Chromebook = {
   id: string
@@ -342,6 +343,7 @@ export default function NovoAgendamentoChromebooks() {
       <HeaderDashboard />
 
       <div className="max-w-3xl mx-auto py-16">
+         <BackButton href="/agendamentos/novo" />
         <h1 className="text-3xl font-bold mb-10 text-center">Novo agendamento</h1>
 
         <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-2xl p-8 space-y-6">

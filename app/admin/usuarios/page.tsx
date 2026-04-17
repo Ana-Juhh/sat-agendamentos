@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
 import { isSuperAdmin } from "@/lib/roles";
+import BackButton from "@/components/BackButton";
 
 type UserRecord = {
   id: string;
@@ -172,6 +173,7 @@ export default function AdminUsuariosPage() {
       <HeaderDashboard />
 
       <div className="max-w-6xl mx-auto px-4 py-10">
+        <BackButton href="/dashboard" />
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-bold">Gerenciar usuários</h1>
 

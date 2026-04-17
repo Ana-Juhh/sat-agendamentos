@@ -22,7 +22,7 @@ export default function HeaderDashboard() {
   const router = useRouter()
   const pathname = usePathname()
   const canAccessAdminArea = useSyncExternalStore(subscribe, getAdminSnapshot, () => false)
-  const shouldShowThemeToggle = !pathname.startsWith('/admin')
+  const shouldShowThemeToggle = true
 
   function handleLogout() {
     pb.authStore.clear()

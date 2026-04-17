@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { pb } from '@/lib/pocketbase'
 import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
+import BackButton from '@/components/BackButton'
 
 const TURMAS_CONFIG: Record<string, string[]> = {
   'Uso Próprio': [],
@@ -153,6 +154,7 @@ export default function NovoAgendamentoMaker() {
       <HeaderDashboard />
 
       <div className="max-w-3xl mx-auto py-16">
+        <BackButton href="/agendamentos/novo" />
         <h1 className="text-3xl font-bold mb-10 text-center">Novo agendamento — Sala Maker</h1>
 
         <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-2xl p-8 space-y-6">

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import HeaderDashboard from '@/components/HeaderDashboard'
+import BackButton from '@/components/BackButton'
 
 export default function EscolherTipoAgendamento() {
   const router = useRouter()
@@ -15,6 +16,7 @@ export default function EscolherTipoAgendamento() {
       <HeaderDashboard />
 
       <div className="max-w-5xl mx-auto py-16">
+        <BackButton href="/dashboard" />
         <h1 className="text-3xl font-bold text-center mb-10">
           O que você deseja agendar?
         </h1>

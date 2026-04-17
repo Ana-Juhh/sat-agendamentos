@@ -6,6 +6,7 @@ import { ClipboardList, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import HeaderDashboard from "@/components/HeaderDashboard";
 import { pb } from "@/lib/pocketbase";
 import { canViewAdminReports } from "@/lib/roles";
+import BackButton from "@/components/BackButton";
 
 type Relatorio = {
   id: string;
@@ -150,6 +151,7 @@ export default function RelatoriosChecagemPage() {
       <>
         <HeaderDashboard />
         <div className="max-w-6xl mx-auto py-16 px-4">
+          <BackButton href="/dashboard" />
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
             Carregando relatórios...
           </div>

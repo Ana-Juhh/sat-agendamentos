@@ -1,325 +1,148 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { pb } from '@/lib/pocketbase'
-import HeaderDashboard from '@/components/HeaderDashboard'
-import { AG_COLLECTION } from '@/lib/agendamentoConfig'
-import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
-import { canViewAllAgendamentos } from '@/lib/roles'
+import { useEffect, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import {
+  CalendarDays,
+  PlusCircle,
+  Wrench,
+  Package2,
+  ClipboardList,
+  QrCode,
+  Users,
+} from "lucide-react";
 
-type Chromebook = {
-  id: string
-  codigo?: string
+import { pb } from "@/lib/pocketbase";
+import {
+  canCheckCarrinhos,
+  canManageEquipamentos,
+  canManageUsers,
+  canUseQrScanner,
+  canViewAdminReports,
+  canViewAllAgendamentos,
+  shouldShowAdminArea,
+} from "@/lib/roles";
+import ServiceCard from "@/components/ServiceCard";
+import HeaderDashboard from "@/components/HeaderDashboard";
+
+function subscribe(callback: () => void) {
+  return pb.authStore.onChange(() => {
+    callback();
+  });
 }
 
-type User = {
-  id: string
-  name?: string
-  email?: string
+function getRoleSnapshot() {
+  const model = pb.authStore.model as { role?: string } | null;
+  return model?.role || "";
 }
 
-type Agendamento = {
-  id: string
-  usuario: string
-  chromebooks?: string[]
-  chromebooks_devolvidos?: string[]
-  data: string
-  inicio: number
-  fim: number
-  status: 'ativo' | 'cancelado'
-  status_entrega?: 'pendente' | 'em_uso' | 'devolvido' | 'atrasado'
-  turma?: string
-  classe?: string
-  observacoes?: string
-  tipo?: 'chromebooks' | 'lab' | 'maker'
-  origem: typeof AG_COLLECTION | typeof ESPACOS_COLLECTION
-  expand?: {
-    chromebooks?: Chromebook[]
-    chromebooks_devolvidos?: Chromebook[]
-    usuario?: User
-  }
-}
-
-function minutosParaHora(minutos: number) {
-  const h = Math.floor(minutos / 60)
-  const m = minutos % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-function normalizarDataISO(v: string) {
-  if (!v) return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
-  return v.slice(0, 10)
-}
-
-function formatarDataBR(dataISO: string) {
-  const iso = normalizarDataISO(dataISO)
-  const [ano, mes, dia] = iso.split('-')
-  return `${dia}/${mes}/${ano}`
+function getAuthSnapshot() {
+  return pb.authStore.isValid;
 }
 
 export default function AdminPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
+  const router = useRouter();
+
+  const role = useSyncExternalStore(subscribe, getRoleSnapshot, () => "");
+  const isAuthenticated = useSyncExternalStore(
+    subscribe,
+    getAuthSnapshot,
+    () => false
+  );
 
   useEffect(() => {
-    const model = pb.authStore.model as { role?: string } | null
-
-    if (!pb.authStore.isValid) {
-      router.replace('/login')
-      return
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
     }
 
-    if (!canViewAllAgendamentos(model?.role)) {
-      router.replace('/dashboard')
-      return
+    if (!shouldShowAdminArea(role)) {
+      router.replace("/dashboard");
     }
+  }, [isAuthenticated, role, router]);
 
-    void carregar()
-  }, [router])
+  const canManageAgenda = canViewAllAgendamentos(role);
+  const canManageEquipments = canManageEquipamentos(role);
+  const canDoCarrinhoCheck = canCheckCarrinhos(role);
+  const canSeeReports = canViewAdminReports(role);
+  const canSeeScanner = canUseQrScanner(role);
+  const canAccessUsers = canManageUsers(role);
 
-  async function carregar() {
-    try {
-      setLoading(true)
-
-      const [chromebooks, espacos] = await Promise.all([
-        pb.collection(AG_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
-          expand: 'usuario,chromebooks,chromebooks_devolvidos',
-          sort: 'data,inicio',
-          filter: `status = "ativo"`,
-          requestKey: null,
-        }),
-        pb.collection(ESPACOS_COLLECTION).getFullList<Omit<Agendamento, 'origem'>>({
-          expand: 'usuario',
-          sort: 'data,inicio',
-          filter: `status = "ativo"`,
-          requestKey: null,
-        }),
-      ])
-
-      const dados: Agendamento[] = [
-        ...chromebooks.map((item) => ({
-          ...item,
-          tipo: 'chromebooks' as const,
-          origem: AG_COLLECTION,
-        })),
-        ...espacos.map((item) => ({
-          ...item,
-          origem: ESPACOS_COLLECTION,
-        })),
-      ].sort((a, b) => {
-        const chaveA = `${normalizarDataISO(a.data)}-${String(a.inicio).padStart(4, '0')}`
-        const chaveB = `${normalizarDataISO(b.data)}-${String(b.inicio).padStart(4, '0')}`
-        return chaveA.localeCompare(chaveB)
-      })
-
-      setAgendamentos(dados)
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao carregar agendamentos')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function cancelar(id: string, origem: Agendamento['origem']) {
-    if (!confirm('Cancelar este agendamento?')) return
-
-    try {
-      await pb.collection(origem).update(id, { status: 'cancelado' })
-      setAgendamentos((prev) => prev.filter((a) => !(a.id === id && a.origem === origem)))
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao cancelar')
-    }
-  }
-
-  async function marcarRetirado(id: string) {
-    try {
-      await pb.collection(AG_COLLECTION).update(id, { status_entrega: 'em_uso' })
-      setAgendamentos((prev) =>
-        prev.map((a) => (a.id === id && a.origem === AG_COLLECTION ? { ...a, status_entrega: 'em_uso' } : a))
-      )
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao marcar como retirado')
-    }
-  }
-
-  function editar(id: string) {
-    router.push(`/admin/agendamentos/${id}`)
-  }
-
-  function irParaDevolucao(id: string) {
-    router.push(`/admin/agendamentos/${id}/devolucao`)
-  }
-
-  const agendamentosPorData = useMemo(() => {
-    return agendamentos.reduce((acc: Record<string, Agendamento[]>, ag) => {
-      const chave = normalizarDataISO(ag.data)
-      acc[chave] = acc[chave] || []
-      acc[chave].push(ag)
-      return acc
-    }, {})
-  }, [agendamentos])
-
-  if (loading) {
-    return (
-      <>
-        <HeaderDashboard />
-        <div className="max-w-6xl mx-auto py-16 text-center text-gray-500">Carregando...</div>
-      </>
-    )
+  if (!isAuthenticated || !shouldShowAdminArea(role)) {
+    return null;
   }
 
   return (
     <>
       <HeaderDashboard />
 
-      <div className="max-w-6xl mx-auto py-16 px-4">
-        <h1 className="text-3xl font-bold mb-8 text-center">Agenda geral</h1>
+      <div className="max-w-5xl mx-auto py-16 px-4">
+        <h2 className="text-3xl font-bold text-center mb-10">
+          Escolha o serviço
+        </h2>
 
-        {agendamentos.length === 0 ? (
-          <p className="text-center text-gray-500">Nenhum agendamento encontrado</p>
-        ) : (
-          <div className="space-y-10">
-            {Object.entries(agendamentosPorData).map(([dataISO, itens]) => (
-              <div key={dataISO}>
-                <h2 className="text-xl font-bold mb-4">{formatarDataBR(dataISO)}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <ServiceCard
+            title="Meus agendamentos"
+            icon={<CalendarDays size={48} />}
+            href="/agendamentos/meus"
+          />
 
-                <div className="space-y-4">
-                  {itens.map((a) => {
-                    const isChromebooks = a.origem === AG_COLLECTION
-                    const chromes = a.expand?.chromebooks ?? []
-                    const devolvidos = a.expand?.chromebooks_devolvidos ?? []
-                    const listaCodigos =
-                      chromes.length > 0
-                        ? chromes.map((c) => c.codigo ?? c.id).join(', ')
-                        : (a.chromebooks ?? []).join(', ')
+          <ServiceCard
+            title="Novo agendamento"
+            icon={<PlusCircle size={48} />}
+            href="/agendamentos/novo"
+          />
 
-                    const nomeUsuario =
-                      a.expand?.usuario?.name || a.expand?.usuario?.email || 'Usuario sem nome'
+          {canManageAgenda && (
+            <ServiceCard
+              title="Agenda geral"
+              icon={<CalendarDays size={48} />}
+              href="/agendamentos/agenda"
+            />
+          )}
 
-                    const turmaCompleta = a.turma
-                      ? `${a.turma}${a.classe ? ` ${a.classe}` : ''}`
-                      : 'Sem turma'
+          {canManageEquipments && (
+            <ServiceCard
+              title="Equipamentos"
+              icon={<Wrench size={48} />}
+              href="/admin/equipamentos"
+            />
+          )}
 
-                    const titulo =
-                      a.tipo === 'lab'
-                        ? 'Lab. de Ciencias'
-                        : a.tipo === 'maker'
-                          ? 'Sala Maker'
-                          : `${chromes.length || (a.chromebooks?.length ?? 0)} Chromebook(s)`
+          {canDoCarrinhoCheck && (
+            <ServiceCard
+              title="Carrinhos"
+              icon={<Package2 size={48} />}
+              href="/checagem/carrinhos"
+            />
+          )}
 
-                    const totalReservados = chromes.length || (a.chromebooks?.length ?? 0)
-                    const totalDevolvidos =
-                      devolvidos.length || (a.chromebooks_devolvidos?.length ?? 0)
-                    const totalPendentes = Math.max(totalReservados - totalDevolvidos, 0)
+          {canSeeReports && (
+            <ServiceCard
+              title="Relatórios de checagem"
+              icon={<ClipboardList size={48} />}
+              href="/admin/checagens"
+            />
+          )}
 
-                    const statusEntrega = a.status_entrega || 'pendente'
+          {canSeeScanner && (
+            <ServiceCard
+              title="Ler QR Code dos Chromebooks"
+              icon={<QrCode size={48} />}
+              href="/dashboard/scanner"
+            />
+          )}
 
-                    return (
-                      <div
-                        key={`${a.origem}-${a.id}`}
-                        className="bg-white shadow rounded-xl p-5 flex justify-between items-start gap-4"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-gray-500 mb-1">{nomeUsuario}</p>
-
-                          <p className="font-semibold text-gray-900 text-2xl">{titulo}</p>
-
-                          {isChromebooks && (
-                            <p className="text-sm text-gray-700 mt-1 break-words">{listaCodigos}</p>
-                          )}
-
-                          <p className="text-sm text-gray-600 mt-2">{turmaCompleta}</p>
-
-                          {a.observacoes && (
-                            <p className="text-sm text-gray-600 mt-1 break-words">{a.observacoes}</p>
-                          )}
-
-                          <p className="text-sm text-gray-600 mt-2">
-                            {minutosParaHora(a.inicio)} - {minutosParaHora(a.fim)}
-                          </p>
-
-                          {isChromebooks && (
-                            <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                              <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
-                                Reservados: {totalReservados}
-                              </span>
-
-                              <span className="px-3 py-1 rounded-full bg-green-50 text-green-700 font-medium">
-                                Devolvidos: {totalDevolvidos}
-                              </span>
-
-                              <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-700 font-medium">
-                                Pendentes: {totalPendentes}
-                              </span>
-                            </div>
-                          )}
-
-                          <p className="text-sm mt-3">
-                            Status entrega:{' '}
-                            <span
-                              className={
-                                statusEntrega === 'devolvido'
-                                  ? 'text-green-700 font-medium'
-                                  : statusEntrega === 'em_uso'
-                                    ? 'text-orange-600 font-medium'
-                                    : statusEntrega === 'atrasado'
-                                      ? 'text-red-600 font-medium'
-                                      : 'text-gray-500 font-medium'
-                              }
-                            >
-                              {statusEntrega}
-                            </span>
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col md:flex-row items-end md:items-center gap-2">
-                          {isChromebooks && (
-                            <>
-                              <button
-                                onClick={() => editar(a.id)}
-                                className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition"
-                              >
-                                Editar
-                              </button>
-
-                              <button
-                                onClick={() => marcarRetirado(a.id)}
-                                className="text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg transition"
-                              >
-                                Retirado
-                              </button>
-
-                              <button
-                                onClick={() => irParaDevolucao(a.id)}
-                                className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
-                              >
-                                Devolucao
-                              </button>
-                            </>
-                          )}
-
-                          <button
-                            onClick={() => cancelar(a.id, a.origem)}
-                            className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          {canAccessUsers && (
+            <ServiceCard
+              title="Usuários"
+              icon={<Users size={48} />}
+              href="/admin/usuarios"
+            />
+          )}
+        </div>
       </div>
     </>
-  )
+  );
 }

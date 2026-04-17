@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Crown, Shield, Trash2, User, Users } from "lucide-react";
+
 import HeaderDashboard from "@/components/HeaderDashboard";
+import BackButton from "@/components/BackButton";
 import { pb } from "@/lib/pocketbase";
 import { isSuperAdmin } from "@/lib/roles";
-import BackButton from "@/components/BackButton";
 
 type UserRecord = {
   id: string;
@@ -23,20 +25,59 @@ const ROLE_OPTIONS = [
   "user",
 ];
 
+function getDisplayName(user: UserRecord) {
+  return user.name || user.username || user.email;
+}
+
+function getInitials(user: UserRecord) {
+  const name = getDisplayName(user).trim();
+  const parts = name.split(" ").filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function getRoleLabel(role?: string) {
+  switch (role) {
+    case "superadmin":
+      return "Superadmin";
+    case "admin":
+      return "Admin";
+    case "estagiario_manha":
+      return "Estagiário manhã";
+    case "estagiario_tarde":
+      return "Estagiário tarde";
+    default:
+      return "Usuário";
+  }
+}
+
+function getRoleBadgeClass(role?: string) {
+  switch (role) {
+    case "superadmin":
+      return "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200";
+
+    case "admin":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200";
+
+    case "estagiario_manha":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200";
+
+    case "estagiario_tarde":
+      return "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200";
+
+    default:
+      return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
+  }
+}
 export default function AdminUsuariosPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "user",
-  });
 
   const currentUser = pb.authStore.model as
     | { id: string; role?: string }
@@ -53,8 +94,8 @@ export default function AdminUsuariosPage() {
       return;
     }
 
-    loadUsers();
-  }, [router]);
+    void loadUsers();
+  }, [router, currentUser?.role]);
 
   async function loadUsers() {
     try {
@@ -94,57 +135,6 @@ export default function AdminUsuariosPage() {
     }
   }
 
-  async function handleCreateUser() {
-    if (!newUser.name.trim()) {
-      alert("Digite o nome do usuário.");
-      return;
-    }
-
-    if (!newUser.email.trim()) {
-      alert("Digite o e-mail do usuário.");
-      return;
-    }
-
-    if (!newUser.password.trim()) {
-      alert("Digite uma senha.");
-      return;
-    }
-
-    if (newUser.password.length < 8) {
-      alert("A senha precisa ter pelo menos 8 caracteres.");
-      return;
-    }
-
-    try {
-      setCreating(true);
-
-      await pb.collection("users").create({
-        name: newUser.name.trim(),
-        email: newUser.email.trim(),
-        password: newUser.password,
-        passwordConfirm: newUser.password,
-        role: newUser.role,
-      });
-
-      alert("Usuário criado com sucesso!");
-
-      setNewUser({
-        name: "",
-        email: "",
-        password: "",
-        role: "user",
-      });
-
-      setShowCreate(false);
-      await loadUsers();
-    } catch (error) {
-      console.error("Erro ao criar usuário:", error);
-      alert("Não foi possível criar o usuário.");
-    } finally {
-      setCreating(false);
-    }
-  }
-
   async function handleDeleteUser(userId: string) {
     if (userId === currentUser?.id) {
       alert("Você não pode excluir seu próprio usuário.");
@@ -159,7 +149,6 @@ export default function AdminUsuariosPage() {
 
     try {
       await pb.collection("users").delete(userId);
-
       setUsers((prev) => prev.filter((user) => user.id !== userId));
       alert("Usuário excluído com sucesso!");
     } catch (error) {
@@ -168,124 +157,89 @@ export default function AdminUsuariosPage() {
     }
   }
 
+  const stats = useMemo(() => {
+    const total = users.length;
+    const superadmins = users.filter((u) => u.role === "superadmin").length;
+    const admins = users.filter((u) => u.role === "admin").length;
+    const comuns = users.filter((u) => !u.role || u.role === "user").length;
+
+    return { total, superadmins, admins, comuns };
+  }, [users]);
+
   return (
     <>
       <HeaderDashboard />
 
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <BackButton href="/dashboard" />
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-3xl font-bold">Gerenciar usuários</h1>
-
-          <button
-            type="button"
-            onClick={() => setShowCreate((prev) => !prev)}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
-          >
-            {showCreate ? "Cancelar" : "Adicionar usuário"}
-          </button>
+      <main className="max-w-6xl mx-auto px-4 py-10 text-slate-900">
+        <div className="mb-6">
+          <BackButton href="/admin" />
         </div>
 
-        {showCreate && (
-          <div className="mb-8 rounded-2xl border bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-xl font-semibold">Novo usuário</h2>
+        <div className="mb-8">
+          <p className="text-sm font-medium text-slate-500">Área administrativa</p>
+          <h1 className="text-3xl sm:text-4xl font-bold mt-1">
+            Gerenciar usuários
+          </h1>
+          <p className="mt-2 text-slate-600">
+            Usuários entram com a conta Google. Aqui você só controla as permissões.
+          </p>
+        </div>
 
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Nome</label>
-                <input
-                  type="text"
-                  placeholder="Nome do usuário"
-                  value={newUser.name}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                  className="rounded-lg border px-3 py-2"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">E-mail</label>
-                <input
-                  type="email"
-                  placeholder="email@colegio.com"
-                  value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      email: e.target.value,
-                    }))
-                  }
-                  className="rounded-lg border px-3 py-2"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Senha</label>
-                <input
-                  type="password"
-                  placeholder="mínimo 8 caracteres"
-                  value={newUser.password}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      password: e.target.value,
-                    }))
-                  }
-                  className="rounded-lg border px-3 py-2"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Nível</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      role: e.target.value,
-                    }))
-                  }
-                  className="rounded-lg border px-3 py-2"
-                >
-                  {ROLE_OPTIONS.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Total</span>
+              <Users size={18} className="text-slate-400" />
             </div>
-
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={handleCreateUser}
-                disabled={creating}
-                className="rounded-lg bg-green-600 px-4 py-2 text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {creating ? "Criando..." : "Criar usuário"}
-              </button>
-            </div>
+            <p className="mt-3 text-3xl font-bold">{stats.total}</p>
           </div>
-        )}
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Superadmins</span>
+              <Crown size={18} className="text-amber-500" />
+            </div>
+            <p className="mt-3 text-3xl font-bold">{stats.superadmins}</p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Admins</span>
+              <Shield size={18} className="text-blue-500" />
+            </div>
+            <p className="mt-3 text-3xl font-bold">{stats.admins}</p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Usuários</span>
+              <User size={18} className="text-slate-500" />
+            </div>
+            <p className="mt-3 text-3xl font-bold">{stats.comuns}</p>
+          </div>
+        </div>
 
         {loading ? (
-          <div className="rounded-2xl border bg-white p-6 shadow-sm">
-            <p>Carregando usuários...</p>
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <p className="text-slate-500">Carregando usuários...</p>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <p className="text-lg font-medium">Nenhum usuário encontrado</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Quando houver usuários cadastrados, eles aparecerão aqui.
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-left">
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">E-mail</th>
-                  <th className="px-4 py-3">Nível</th>
-                  <th className="px-4 py-3">Ações</th>
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <table className="min-w-full">
+              <thead className="bg-slate-50">
+                <tr className="text-left">
+                  <th className="px-6 py-4 text-sm font-semibold">Usuário</th>
+                  <th className="px-6 py-4 text-sm font-semibold">E-mail</th>
+                  <th className="px-6 py-4 text-sm font-semibold">Nível atual</th>
+                  <th className="px-6 py-4 text-sm font-semibold">Permissão</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-right">Ações</th>
                 </tr>
               </thead>
 
@@ -294,42 +248,63 @@ export default function AdminUsuariosPage() {
                   const isCurrentUser = user.id === currentUser?.id;
 
                   return (
-                    <tr key={user.id} className="border-b last:border-b-0">
-                      <td className="px-4 py-3">
-                        {user.name || user.username || user.email}
+                    <tr
+                      key={user.id}
+                      className="border-t border-slate-200"
+                    >
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-700">
+                            {getInitials(user)}
+                          </div>
+                          <div>
+                            <p className="font-semibold">{getDisplayName(user)}</p>
+                            {isCurrentUser && (
+                              <p className="text-xs text-slate-500">Você</p>
+                            )}
+                          </div>
+                        </div>
                       </td>
 
-                      <td className="px-4 py-3">{user.email}</td>
+                      <td className="px-6 py-5 text-slate-700">
+                        {user.email}
+                      </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-5">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getRoleBadgeClass(
+                            user.role
+                          )}`}
+                        >
+                          {getRoleLabel(user.role)}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-5">
                         <select
                           value={user.role || "user"}
                           onChange={(e) =>
                             handleRoleChange(user.id, e.target.value)
                           }
                           disabled={savingUserId === user.id}
-                          className="rounded-lg border px-3 py-2 disabled:opacity-60"
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 disabled:opacity-60"
                         >
                           {ROLE_OPTIONS.map((role) => (
                             <option key={role} value={role}>
-                              {role}
+                              {getRoleLabel(role)}
                             </option>
                           ))}
                         </select>
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-5 text-right">
                         <button
                           type="button"
                           onClick={() => handleDeleteUser(user.id)}
                           disabled={isCurrentUser}
-                          className="rounded-lg bg-red-600 px-3 py-2 text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          title={
-                            isCurrentUser
-                              ? "Você não pode excluir seu próprio usuário"
-                              : "Excluir usuário"
-                          }
+                          className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-2.5 text-white font-medium transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
+                          <Trash2 size={16} />
                           Excluir
                         </button>
                       </td>
@@ -340,7 +315,7 @@ export default function AdminUsuariosPage() {
             </table>
           </div>
         )}
-      </div>
+      </main>
     </>
   );
 }

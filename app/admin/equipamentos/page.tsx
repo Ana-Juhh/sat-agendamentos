@@ -173,9 +173,10 @@ export default function AdminEquipamentosPage() {
       setNovoTipo("agendamento");
       setNovoCarrinho("");
       setNovaPosicao("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err?.data?.message || err?.message || "Erro ao adicionar chromebook");
+      const erro = err as { data?: { message?: string }; message?: string };
+      alert(erro?.data?.message || erro?.message || "Erro ao adicionar chromebook");
     } finally {
       setSalvando(false);
     }
@@ -237,9 +238,10 @@ export default function AdminEquipamentosPage() {
       );
 
       cancelarEdicao();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err?.data?.message || err?.message || "Erro ao salvar edição");
+      const erro = err as { data?: { message?: string }; message?: string };
+      alert(erro?.data?.message || erro?.message || "Erro ao salvar edição");
     } finally {
       setSalvando(false);
     }
@@ -256,9 +258,10 @@ export default function AdminEquipamentosPage() {
           .map((c) => (c.id === chrome.id ? atualizado : c))
           .sort((a, b) => a.codigo.localeCompare(b.codigo))
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err?.data?.message || err?.message || "Erro ao atualizar status");
+      const erro = err as { data?: { message?: string }; message?: string };
+      alert(erro?.data?.message || erro?.message || "Erro ao atualizar status");
     }
   }
 
@@ -268,9 +271,10 @@ export default function AdminEquipamentosPage() {
     try {
       await pb.collection("chromebooks").delete(id);
       setChromebooks((prev) => prev.filter((c) => c.id !== id));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err?.data?.message || err?.message || "Erro ao excluir chromebook");
+      const erro = err as { data?: { message?: string }; message?: string };
+      alert(erro?.data?.message || erro?.message || "Erro ao excluir chromebook");
     }
   }
 

@@ -111,11 +111,11 @@ export default function MeusAgendamentos() {
         ...chromebooks.map((item) => ({
           ...item,
           tipo: 'chromebooks' as const,
-          origem: AG_COLLECTION,
+          origem: AG_COLLECTION as typeof AG_COLLECTION,
         })),
         ...espacos.map((item) => ({
           ...item,
-          origem: ESPACOS_COLLECTION,
+          origem: ESPACOS_COLLECTION as typeof ESPACOS_COLLECTION,
         })),
       ].sort((a, b) => {
         const chaveA = `${normalizarDataISO(a.data)}-${String(a.inicio).padStart(4, '0')}`

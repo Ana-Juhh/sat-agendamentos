@@ -16,7 +16,12 @@ function getStoredTheme(): Theme {
     return 'light';
   }
 
-  return window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  const savedTheme = window.localStorage.getItem(STORAGE_KEY);
+  if (savedTheme === 'dark' || savedTheme === 'light') {
+    return savedTheme;
+  }
+
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
 }
 
 function subscribe(callback: () => void) {
@@ -60,6 +65,8 @@ export default function ThemeToggle({ variant = 'floating' }: ThemeToggleProps) 
   }
 
   const label = theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro';
+  const displayText = theme === 'dark' ? 'Modo escuro' : 'Modo claro';
+  const icon = theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />;
 
   return (
     <button
@@ -70,9 +77,9 @@ export default function ThemeToggle({ variant = 'floating' }: ThemeToggleProps) 
       title={label}
     >
       <span className="theme-toggle__icon" aria-hidden="true">
-        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        {icon}
       </span>
-      <span className="theme-toggle__text">{theme === 'dark' ? 'Modo claro' : 'Modo escuro'}</span>
+      <span className="theme-toggle__text">{displayText}</span>
     </button>
   );
 }

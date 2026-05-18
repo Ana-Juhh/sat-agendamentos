@@ -236,21 +236,30 @@ export default function DevolucaoAgendamentoPage() {
                       onClick={() => toggleDevolvido(chromebook.id)}
                       className={`border rounded-xl p-4 text-left transition ${
                         marcado
-                          ? 'border-green-500 bg-green-50'
-                          : 'hover:border-gray-400'
+                          ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                          : 'border-slate-500 bg-slate-700 text-white hover:border-slate-400 hover:bg-slate-600'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-semibold">{chromebook.codigo || chromebook.id}</p>
-                          <p className="text-sm text-gray-500">
-                            {marcado ? 'Marcado como devolvido' : 'Ainda nao devolvido'}
+                          <p className="font-semibold">
+                            {chromebook.codigo || chromebook.id}
+                          </p>
+
+                          <p className="text-sm text-slate-200">
+                            {marcado ? 'Marcado como devolvido' : 'Ainda não devolvido'}
                           </p>
                         </div>
 
-                        <div className="text-2xl">
-                          {marcado ? 'OK' : '[]'}
-                        </div>
+                        {marcado ? (
+                          <span className="rounded-full bg-blue-700 text-white px-3 py-1 text-sm font-semibold">
+                            Devolvido
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-600 text-white px-3 py-1 text-sm font-semibold">
+                            Pendente
+                          </span>
+                        )}
                       </div>
                     </button>
                   )

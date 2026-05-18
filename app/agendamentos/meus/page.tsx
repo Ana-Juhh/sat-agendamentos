@@ -9,6 +9,8 @@ import { ESPACOS_COLLECTION } from '@/lib/espacoConfig'
 import { canViewAllAgendamentos } from '@/lib/roles'
 import BackButton from '@/components/BackButton'
 
+type StatusEntrega = 'pendente' | 'em_uso' | 'devolvido' | 'atrasado'
+
 type Chromebook = {
   id: string
   codigo?: string
@@ -18,6 +20,7 @@ type Chromebook = {
 type User = {
   id: string
   name?: string
+  nome?: string
   email?: string
   role?: string
 }
@@ -30,11 +33,12 @@ type BaseAgendamento = {
   inicio: number
   fim: number
   status: 'ativo' | 'cancelado'
-  status_entrega?: 'pendente' | 'em_uso' | 'devolvido' | 'atrasado'
+  status_entrega?: StatusEntrega
   turma?: string
   classe?: string
   observacoes?: string
   tipo?: 'chromebooks' | 'lab' | 'maker'
+  grupo_agendamento?: string
   expand?: {
     chromebooks?: Chromebook[]
     usuario?: User
@@ -45,22 +49,193 @@ type Agendamento = BaseAgendamento & {
   origem: typeof AG_COLLECTION | typeof ESPACOS_COLLECTION
 }
 
+type GrupoAgendamento = {
+  chave: string
+  origem: Agendamento['origem']
+  itens: Agendamento[]
+  principal: Agendamento
+  isChromebooks: boolean
+  dataInicio: string
+  dataFim: string
+}
+
+function hojeISO() {
+  const agora = new Date()
+  const ano = agora.getFullYear()
+  const mes = String(agora.getMonth() + 1).padStart(2, '0')
+  const dia = String(agora.getDate()).padStart(2, '0')
+
+  return `${ano}-${mes}-${dia}`
+}
+
+function criarDataLocal(dataISO: string) {
+  const [ano, mes, dia] = dataISO.split('-').map(Number)
+  return new Date(ano, mes - 1, dia)
+}
+
+function formatarDataISO(data: Date) {
+  const ano = data.getFullYear()
+  const mes = String(data.getMonth() + 1).padStart(2, '0')
+  const dia = String(data.getDate()).padStart(2, '0')
+
+  return `${ano}-${mes}-${dia}`
+}
+
+function somarDias(dataISO: string, dias: number) {
+  const data = criarDataLocal(dataISO)
+  data.setDate(data.getDate() + dias)
+  return formatarDataISO(data)
+}
+
+function minutosAgora() {
+  const agora = new Date()
+  return agora.getHours() * 60 + agora.getMinutes()
+}
+
 function minutosParaHora(minutos: number) {
-  const h = Math.floor(minutos / 60)
-  const m = minutos % 60
+  const h = Math.floor(Number(minutos || 0) / 60)
+  const m = Number(minutos || 0) % 60
+
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-function normalizarDataISO(v: string) {
-  if (!v) return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
-  return v.slice(0, 10)
+function normalizarDataISO(valor: string) {
+  if (!valor) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor
+  return valor.slice(0, 10)
 }
 
 function formatarDataBR(dataISO: string) {
   const iso = normalizarDataISO(dataISO)
+
+  if (!iso) return 'Data não informada'
+
   const [ano, mes, dia] = iso.split('-')
   return `${dia}/${mes}/${ano}`
+}
+
+function calcularStatusAutomatico(agendamento: Agendamento): StatusEntrega {
+  if (agendamento.origem !== AG_COLLECTION) {
+    return agendamento.status_entrega || 'pendente'
+  }
+
+  if (agendamento.status_entrega === 'devolvido') {
+    return 'devolvido'
+  }
+
+  const dataAgendamento = normalizarDataISO(agendamento.data)
+  const hoje = hojeISO()
+
+  if (!dataAgendamento) {
+    return agendamento.status_entrega || 'pendente'
+  }
+
+  if (dataAgendamento < hoje) {
+    return 'atrasado'
+  }
+
+  if (dataAgendamento > hoje) {
+    return 'pendente'
+  }
+
+  const agoraMin = minutosAgora()
+  const inicioMin = Number(agendamento.inicio || 0)
+  const fimMin = Number(agendamento.fim || 0)
+
+  if (agoraMin >= inicioMin && agoraMin <= fimMin) {
+    return 'em_uso'
+  }
+
+  if (agoraMin > fimMin) {
+    return 'atrasado'
+  }
+
+  return 'pendente'
+}
+
+function statusDoGrupo(grupo: GrupoAgendamento): StatusEntrega {
+  const statusDosItens = grupo.itens.map((item) => {
+    return item.status_entrega || 'pendente'
+  })
+
+  if (statusDosItens.includes('atrasado')) {
+    return 'atrasado'
+  }
+
+  if (statusDosItens.includes('em_uso')) {
+    return 'em_uso'
+  }
+
+  if (statusDosItens.every((status) => status === 'devolvido')) {
+    return 'devolvido'
+  }
+
+  return 'pendente'
+}
+
+function nomeStatusEntrega(status?: string) {
+  if (status === 'em_uso') return 'Em uso'
+  if (status === 'devolvido') return 'Devolvido'
+  if (status === 'atrasado') return 'Atrasado'
+  return 'Pendente'
+}
+
+function classeStatusEntrega(status?: string) {
+  if (status === 'em_uso') return 'bg-orange-600 text-white'
+  if (status === 'devolvido') return 'bg-green-600 text-white'
+  if (status === 'atrasado') return 'bg-red-600 text-white'
+  return 'bg-slate-600 text-white'
+}
+
+function nomeTipoAgendamento(agendamento: Agendamento, totalDias: number) {
+  if (agendamento.tipo === 'lab') return 'Lab. de Ciências'
+  if (agendamento.tipo === 'maker') return 'Sala Maker'
+
+  const chromes = agendamento.expand?.chromebooks ?? []
+  const quantidade = chromes.length || agendamento.chromebooks?.length || 0
+
+  if (totalDias > 1) {
+    return `${quantidade} Chromebook(s) — ${totalDias} dias`
+  }
+
+  return `${quantidade} Chromebook(s)`
+}
+
+function nomeResponsavel(agendamento: Agendamento) {
+  return (
+    agendamento.expand?.usuario?.name ||
+    agendamento.expand?.usuario?.nome ||
+    agendamento.expand?.usuario?.email ||
+    'Usuário sem nome'
+  )
+}
+
+function nomeTurmaClasse(agendamento: Agendamento) {
+  if (!agendamento.turma) return 'Sem turma'
+
+  if (!agendamento.classe) {
+    return agendamento.turma
+  }
+
+  return `${agendamento.turma} ${agendamento.classe}`
+}
+
+function listaCodigosChromebooks(agendamento: Agendamento) {
+  const chromes = agendamento.expand?.chromebooks ?? []
+
+  if (chromes.length > 0) {
+    return chromes.map((chromebook) => chromebook.codigo ?? chromebook.id).join(', ')
+  }
+
+  return (agendamento.chromebooks ?? []).join(', ')
+}
+
+function periodoGrupo(grupo: GrupoAgendamento) {
+  if (grupo.dataInicio === grupo.dataFim) {
+    return formatarDataBR(grupo.dataInicio)
+  }
+
+  return `${formatarDataBR(grupo.dataInicio)} até ${formatarDataBR(grupo.dataFim)}`
 }
 
 export default function MeusAgendamentos() {
@@ -72,12 +247,51 @@ export default function MeusAgendamentos() {
   const [usuarioId, setUsuarioId] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
 
+  const [dataInicioFiltro, setDataInicioFiltro] = useState(hojeISO())
+  const [dataFimFiltro, setDataFimFiltro] = useState('')
+
   useEffect(() => {
     const model = pb.authStore.model as { id?: string; role?: string } | null
+
     setUsuarioId(model?.id ?? null)
     setRole(model?.role ?? null)
     setAuthReady(true)
   }, [])
+
+  const podeVerTodos = canViewAllAgendamentos(role)
+
+  async function sincronizarStatusAutomatico(lista: Agendamento[]) {
+    const atualizados = await Promise.all(
+      lista.map(async (agendamento) => {
+        if (agendamento.origem !== AG_COLLECTION) {
+          return agendamento
+        }
+
+        const statusAtual = agendamento.status_entrega || 'pendente'
+        const novoStatus = calcularStatusAutomatico(agendamento)
+
+        if (statusAtual === novoStatus) {
+          return agendamento
+        }
+
+        try {
+          await pb.collection(agendamento.origem).update(agendamento.id, {
+            status_entrega: novoStatus,
+          })
+
+          return {
+            ...agendamento,
+            status_entrega: novoStatus,
+          }
+        } catch (e) {
+          console.error('Erro ao atualizar status automático:', e)
+          return agendamento
+        }
+      })
+    )
+
+    return atualizados
+  }
 
   async function carregar() {
     try {
@@ -88,20 +302,37 @@ export default function MeusAgendamentos() {
         return
       }
 
-      const filter = canViewAllAgendamentos(role)
-        ? `status = "ativo"`
-        : `usuario = "${usuarioId}" && status = "ativo"`
+      const dataInicioISO = normalizarDataISO(dataInicioFiltro)
+      const dataFimISO = normalizarDataISO(dataFimFiltro)
+
+      let filter = podeVerTodos
+        ? `status = "ativo" && status_entrega != "devolvido"`
+        : `usuario = "${usuarioId}" && status = "ativo" && status_entrega != "devolvido"`
+
+      if (dataInicioISO) {
+        filter += ` && data >= "${dataInicioISO}"`
+      }
+
+      if (dataFimISO) {
+        const fimExclusivo = somarDias(dataFimISO, 1)
+        filter += ` && data < "${fimExclusivo}"`
+      }
+
+      const temFiltroData = Boolean(dataInicioISO || dataFimISO)
+
+      const sort = temFiltroData ? '+data,+inicio' : '-data,+inicio'
 
       const [chromebooks, espacos] = await Promise.all([
         pb.collection(AG_COLLECTION).getFullList<BaseAgendamento>({
           filter,
-          sort: 'data,inicio',
+          sort,
           expand: 'chromebooks,usuario',
           requestKey: null,
         }),
+
         pb.collection(ESPACOS_COLLECTION).getFullList<BaseAgendamento>({
           filter,
-          sort: 'data,inicio',
+          sort,
           expand: 'usuario',
           requestKey: null,
         }),
@@ -113,21 +344,37 @@ export default function MeusAgendamentos() {
           tipo: 'chromebooks' as const,
           origem: AG_COLLECTION as typeof AG_COLLECTION,
         })),
+
         ...espacos.map((item) => ({
           ...item,
           origem: ESPACOS_COLLECTION as typeof ESPACOS_COLLECTION,
         })),
       ].sort((a, b) => {
-        const chaveA = `${normalizarDataISO(a.data)}-${String(a.inicio).padStart(4, '0')}`
-        const chaveB = `${normalizarDataISO(b.data)}-${String(b.inicio).padStart(4, '0')}`
-        return chaveA.localeCompare(chaveB)
+        const dataA = normalizarDataISO(a.data)
+        const dataB = normalizarDataISO(b.data)
+
+        if (dataA !== dataB) {
+          return temFiltroData
+            ? dataA.localeCompare(dataB)
+            : dataB.localeCompare(dataA)
+        }
+
+        return Number(a.inicio || 0) - Number(b.inicio || 0)
       })
 
-      setAgendamentos(dados)
+      const dadosComStatusAtualizado = await sincronizarStatusAutomatico(dados)
+
+      setAgendamentos(dadosComStatusAtualizado)
     } catch (e) {
       const erro = e as { data?: { message?: string }; message?: string }
+
       console.error('ERRO COMPLETO:', e)
-      alert(erro?.data?.message || erro?.message || 'Erro ao carregar agendamentos')
+
+      alert(
+        erro?.data?.message ||
+          erro?.message ||
+          'Erro ao carregar agendamentos'
+      )
     } finally {
       setCarregando(false)
     }
@@ -135,46 +382,118 @@ export default function MeusAgendamentos() {
 
   useEffect(() => {
     if (!authReady) return
+
     void carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authReady, usuarioId, role])
+  }, [authReady, usuarioId, role, dataInicioFiltro, dataFimFiltro])
 
-  const agendamentosPorData = useMemo(() => {
-    return agendamentos.reduce((acc: Record<string, Agendamento[]>, ag) => {
-      const chave = normalizarDataISO(ag.data)
-      acc[chave] = acc[chave] || []
-      acc[chave].push(ag)
+  const grupos = useMemo<GrupoAgendamento[]>(() => {
+    const mapa = new Map<string, Agendamento[]>()
+
+    for (const agendamento of agendamentos) {
+      const isChromebooks = agendamento.origem === AG_COLLECTION
+
+      const chave =
+        isChromebooks && agendamento.grupo_agendamento
+          ? `grupo-${agendamento.grupo_agendamento}`
+          : `${agendamento.origem}-${agendamento.id}`
+
+      const lista = mapa.get(chave) ?? []
+      lista.push(agendamento)
+      mapa.set(chave, lista)
+    }
+
+    return Array.from(mapa.entries())
+      .map(([chave, itens]) => {
+        const ordenados = [...itens].sort((a, b) => {
+          const dataA = normalizarDataISO(a.data)
+          const dataB = normalizarDataISO(b.data)
+
+          if (dataA !== dataB) return dataA.localeCompare(dataB)
+
+          return Number(a.inicio || 0) - Number(b.inicio || 0)
+        })
+
+        const principal = ordenados[0]
+        const dataInicio = normalizarDataISO(ordenados[0]?.data || '')
+        const dataFim = normalizarDataISO(ordenados[ordenados.length - 1]?.data || '')
+
+        return {
+          chave,
+          origem: principal.origem,
+          itens: ordenados,
+          principal,
+          isChromebooks: principal.origem === AG_COLLECTION,
+          dataInicio,
+          dataFim,
+        }
+      })
+      .sort((a, b) => {
+        const temFiltroData = Boolean(dataInicioFiltro || dataFimFiltro)
+
+        if (a.dataInicio !== b.dataInicio) {
+          return temFiltroData
+            ? a.dataInicio.localeCompare(b.dataInicio)
+            : b.dataInicio.localeCompare(a.dataInicio)
+        }
+
+        return Number(a.principal.inicio || 0) - Number(b.principal.inicio || 0)
+      })
+  }, [agendamentos, dataInicioFiltro, dataFimFiltro])
+
+  const gruposPorData = useMemo(() => {
+    return grupos.reduce((acc: Record<string, GrupoAgendamento[]>, grupo) => {
+      const chave = grupo.dataInicio
+
+      if (!chave) return acc
+
+      if (!acc[chave]) {
+        acc[chave] = []
+      }
+
+      acc[chave].push(grupo)
+
       return acc
     }, {})
-  }, [agendamentos])
+  }, [grupos])
 
-  async function cancelarAgendamento(id: string, origem: Agendamento['origem']) {
+  const datasOrdenadas = useMemo(() => {
+    const datas = Object.keys(gruposPorData)
+    const temFiltroData = Boolean(dataInicioFiltro || dataFimFiltro)
+
+    return datas.sort((a, b) => {
+      return temFiltroData ? a.localeCompare(b) : b.localeCompare(a)
+    })
+  }, [gruposPorData, dataInicioFiltro, dataFimFiltro])
+
+  async function cancelarGrupo(grupo: GrupoAgendamento) {
     if (!confirm('Cancelar este agendamento?')) return
 
     try {
-      await pb.collection(origem).update(id, { status: 'cancelado' })
-      setAgendamentos((prev) => prev.filter((a) => !(a.id === id && a.origem === origem)))
+      await Promise.all(
+        grupo.itens.map((item) =>
+          pb.collection(item.origem).update(item.id, {
+            status: 'cancelado',
+          })
+        )
+      )
+
+      setAgendamentos((prev) =>
+        prev.filter(
+          (agendamento) =>
+            !grupo.itens.some(
+              (item) =>
+                item.id === agendamento.id && item.origem === agendamento.origem
+            )
+        )
+      )
     } catch (e) {
       console.error(e)
       alert('Erro ao cancelar. Veja o console (F12).')
     }
   }
 
-  async function marcarRetirado(id: string, origem: Agendamento['origem']) {
-    try {
-      await pb.collection(origem).update(id, { status_entrega: 'em_uso' })
-      setAgendamentos((prev) =>
-        prev.map((a) =>
-          a.id === id && a.origem === origem ? { ...a, status_entrega: 'em_uso' } : a
-        )
-      )
-    } catch (e) {
-      console.error(e)
-      alert('Erro ao marcar como retirado.')
-    }
-  }
-
-  function editarAgendamento(id: string) {
+  function editarAgendamentoChromebooks(id: string) {
     router.push(`/admin/agendamentos/${id}`)
   }
 
@@ -188,133 +507,196 @@ export default function MeusAgendamentos() {
 
       <main className="max-w-5xl mx-auto px-4 py-10">
         <BackButton href="/dashboard" />
+
         <h1 className="text-3xl font-bold mb-8 text-center">
           {!authReady
             ? 'Carregando...'
-            : canViewAllAgendamentos(role)
+            : podeVerTodos
               ? 'Todos os agendamentos'
               : 'Meus Agendamentos'}
         </h1>
 
+        <div className="bg-white rounded-2xl shadow-sm border p-5 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
+            <div>
+              <label className="block font-medium mb-2">Data inicial</label>
+
+              <input
+                type="date"
+                className="w-full border rounded-lg px-4 py-2"
+                value={dataInicioFiltro}
+                onChange={(e) => setDataInicioFiltro(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium mb-2">Data final</label>
+
+              <input
+                type="date"
+                className="w-full border rounded-lg px-4 py-2"
+                value={dataFimFiltro}
+                onChange={(e) => setDataFimFiltro(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDataInicioFiltro(hojeISO())
+                  setDataFimFiltro('')
+                }}
+                className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+              >
+                A partir de hoje
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDataInicioFiltro('')
+                  setDataFimFiltro('')
+                }}
+                className="px-4 py-2 rounded-lg border border-slate-400 font-semibold hover:bg-slate-700 hover:text-white hover:border-slate-600"
+              >
+                Ver todos
+              </button>
+            </div>
+          </div>
+        </div>
+
         {carregando ? (
-          <div className="text-center py-20 text-gray-500">Carregando...</div>
-        ) : agendamentos.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
-            <p className="text-gray-500 text-lg">Nenhum agendamento ativo encontrado</p>
+          <div className="text-center py-20 text-gray-500">
+            Carregando...
+          </div>
+        ) : grupos.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border">
+            <p className="text-gray-500 text-lg">
+              Nenhum agendamento ativo encontrado
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.entries(agendamentosPorData).map(([dataISO, itens]) => (
-              <div key={dataISO} className="bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold mb-4 text-gray-700">{formatarDataBR(dataISO)}</h2>
+            {datasOrdenadas.map((dataISO) => {
+              const itens = gruposPorData[dataISO] || []
 
-                <div className="space-y-3">
-                  {itens.map((a) => {
-                    const chromes = a.expand?.chromebooks ?? []
-                    const listaCodigos =
-                      chromes.length > 0
-                        ? chromes.map((c) => c.codigo ?? c.id).join(', ')
-                        : (a.chromebooks ?? []).join(', ')
+              return (
+                <div
+                  key={dataISO}
+                  className="bg-white rounded-2xl shadow-sm p-6 border"
+                >
+                  <h2 className="text-lg font-bold mb-4 text-gray-700">
+                    {formatarDataBR(dataISO)}
+                  </h2>
 
-                    const nomeUsuario =
-                      a.expand?.usuario?.name || a.expand?.usuario?.email || 'Usuario sem nome'
+                  <div className="space-y-3">
+                    {itens.map((grupo) => {
+                      const agendamento = grupo.principal
+                      const totalDias = grupo.itens.length
+                      const isChromebooks = grupo.isChromebooks
+                      const listaCodigos = listaCodigosChromebooks(agendamento)
+                      const statusEntrega = statusDoGrupo(grupo)
 
-                    const turmaCompleta = a.turma
-                      ? `${a.turma}${a.classe ? ` ${a.classe}` : ''}`
-                      : 'Sem turma'
+                      return (
+                        <div
+                          key={grupo.chave}
+                          className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <h3 className="font-bold text-gray-800">
+                                {nomeTipoAgendamento(agendamento, totalDias)}
+                              </h3>
 
-                    const statusEntrega = a.status_entrega || 'pendente'
-                    const isChromebooks = a.origem === AG_COLLECTION
-                    const titulo =
-                      a.tipo === 'lab'
-                        ? 'Lab. de Ciencias'
-                        : a.tipo === 'maker'
-                          ? 'Sala Maker'
-                          : `${chromes.length || (a.chromebooks?.length ?? 0)} Chromebook(s)`
+                              {isChromebooks ? (
+                                <span
+                                  className={`text-xs font-semibold px-2 py-1 rounded-full ${classeStatusEntrega(
+                                    statusEntrega
+                                  )}`}
+                                >
+                                  {nomeStatusEntrega(statusEntrega)}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                                  Reservado
+                                </span>
+                              )}
+                            </div>
 
-                    return (
-                      <div
-                        key={`${a.origem}-${a.id}`}
-                        className="flex justify-between items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition"
-                      >
-                        <div className="min-w-0 flex-1">
-                          {canViewAllAgendamentos(role) && (
-                            <p className="text-xs text-gray-500 mb-1 truncate">{nomeUsuario}</p>
-                          )}
+                            <p className="text-sm text-gray-600">
+                              <strong>Período:</strong> {periodoGrupo(grupo)}
+                            </p>
 
-                          <p className="font-semibold text-gray-900">{titulo}</p>
+                            <p className="text-sm text-gray-600">
+                              <strong>Horário:</strong>{' '}
+                              {minutosParaHora(agendamento.inicio)} às{' '}
+                              {minutosParaHora(agendamento.fim)}
+                            </p>
 
-                          {isChromebooks && (
-                            <p className="text-sm text-gray-700 mt-1 break-words">{listaCodigos}</p>
-                          )}
+                            <p className="text-sm text-gray-600">
+                              <strong>Turma:</strong>{' '}
+                              {nomeTurmaClasse(agendamento)}
+                            </p>
 
-                          <p className="text-sm text-gray-600 mt-2">{turmaCompleta}</p>
+                            <p className="text-sm text-gray-600">
+                              <strong>Responsável:</strong>{' '}
+                              {nomeResponsavel(agendamento)}
+                            </p>
 
-                          {a.observacoes && (
-                            <p className="text-sm text-gray-600 mt-1 break-words">{a.observacoes}</p>
-                          )}
+                            {isChromebooks ? (
+                              <p className="text-sm text-gray-600 break-words">
+                                <strong>Chromebooks:</strong>{' '}
+                                {listaCodigos || 'Não informado'}
+                              </p>
+                            ) : null}
 
-                          <p className="text-sm text-gray-600 mt-2">
-                            {minutosParaHora(a.inicio)} - {minutosParaHora(a.fim)}
-                          </p>
+                            {agendamento.observacoes ? (
+                              <p className="text-sm text-gray-500 mt-2">
+                                <strong>Observações:</strong>{' '}
+                                {agendamento.observacoes}
+                              </p>
+                            ) : null}
+                          </div>
 
-                          <p className="text-sm mt-2">
-                            Status entrega:{' '}
-                            <span
-                              className={
-                                statusEntrega === 'devolvido'
-                                  ? 'text-green-700 font-medium'
-                                  : statusEntrega === 'em_uso'
-                                    ? 'text-orange-600 font-medium'
-                                    : statusEntrega === 'atrasado'
-                                      ? 'text-red-600 font-medium'
-                                      : 'text-gray-500 font-medium'
-                              }
-                            >
-                              {statusEntrega}
-                            </span>
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-wrap justify-end">
-                          {canViewAllAgendamentos(role) && isChromebooks && (
-                            <>
+                          <div className="flex flex-wrap gap-2 lg:justify-end">
+                            {isChromebooks ? (
                               <button
-                                onClick={() => editarAgendamento(a.id)}
-                                className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition"
+                                type="button"
+                                onClick={() => irParaDevolucao(agendamento.id)}
+                                className="px-3 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-semibold"
+                              >
+                                Registrar devolução
+                              </button>
+                            ) : null}
+
+                            {podeVerTodos && isChromebooks ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  editarAgendamentoChromebooks(agendamento.id)
+                                }
+                                className="px-3 py-2 rounded-lg border text-sm font-semibold hover:bg-gray-50"
                               >
                                 Editar
                               </button>
+                            ) : null}
 
-                              <button
-                                onClick={() => marcarRetirado(a.id, a.origem)}
-                                className="text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg transition"
-                              >
-                                Retirado
-                              </button>
-
-                              <button
-                                onClick={() => irParaDevolucao(a.id)}
-                                className="text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg transition"
-                              >
-                                Devolucao
-                              </button>
-                            </>
-                          )}
-
-                          <button
-                            onClick={() => cancelarAgendamento(a.id, a.origem)}
-                            className="text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition"
-                          >
-                            Cancelar
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => cancelarGrupo(grupo)}
+                              className="px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </main>

@@ -74,13 +74,11 @@ export default function Dashboard() {
             href="/agendamentos/novo"
           />
 
-          {canManageAgenda && (
-            <ServiceCard
-              title="Agenda geral"
-              icon={<CalendarDays size={48} />}
-              href="/agendamentos/agenda"
-            />
-          )}
+          <ServiceCard
+            title={canManageAgenda ? "Agenda geral" : "Minha agenda"}
+            icon={<CalendarDays size={48} />}
+            href="/agendamentos/agenda"
+          />
 
           {canManageEquipments && (
             <ServiceCard

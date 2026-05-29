@@ -12,7 +12,7 @@ export default function ServiceCard({ title, icon, href }: Props) {
   return (
     <Link
       href={href}
-      className="border rounded-2xl p-10 flex flex-col items-center gap-4 hover:shadow-lg transition bg-white"
+      className="border border-slate-200 rounded-2xl p-10 flex flex-col items-center gap-4 hover:border-blue-300 hover:shadow-lg transition bg-white"
     >
       {icon}
       <span className="text-xl font-semibold text-center">{title}</span>

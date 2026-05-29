@@ -179,16 +179,19 @@ const translations: Record<HomeLocale, HomeTranslations> = {
 };
 
 export default function HomePageContent() {
-  const [locale, setLocale] = useState<HomeLocale>(() => {
-    if (typeof window === 'undefined') {
-      return 'pt-BR';
-    }
-
-    const savedLocale = window.localStorage.getItem(STORAGE_KEY);
-    return savedLocale === 'en' || savedLocale === 'pt-BR' ? savedLocale : 'pt-BR';
-  });
+  const [locale, setLocale] = useState<HomeLocale>('pt-BR');
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const savedLocale = window.localStorage.getItem(STORAGE_KEY);
+
+    if (savedLocale === 'en' || savedLocale === 'pt-BR') {
+      // Hydration-safe locale initialization from client-only storage.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocale(savedLocale);
+    }
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, locale);

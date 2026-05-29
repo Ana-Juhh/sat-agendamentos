@@ -367,26 +367,6 @@ export default function NovoAgendamentoChromebooks() {
     return idsExpand.length ? idsExpand : idsRaw
   }
 
-  async function buscarIdsOcupadosNoPeriodo(
-    datasSelecionadas: string[],
-    inicioMin: number,
-    fimMin: number
-  ) {
-    const reservas = await buscarReservasOcupadasNoPeriodo({
-      datasSelecionadas,
-      inicioMin,
-      fimMin,
-    })
-
-    return Array.from(
-      new Set(
-        reservas.flatMap((reserva) => {
-          return extrairIdsChromebooksReserva(reserva)
-        })
-      )
-    )
-  }
-
   async function criarEventoGoogleAgenda(params: {
     titulo: string
     descricao: string
@@ -469,6 +449,26 @@ export default function NovoAgendamentoChromebooks() {
     }
 
     let ativo = true
+
+    async function buscarIdsOcupadosNoPeriodo(
+      datasSelecionadas: string[],
+      inicioMin: number,
+      fimMin: number
+    ) {
+      const reservas = await buscarReservasOcupadasNoPeriodo({
+        datasSelecionadas,
+        inicioMin,
+        fimMin,
+      })
+
+      return Array.from(
+        new Set(
+          reservas.flatMap((reserva) => {
+            return extrairIdsChromebooksReserva(reserva)
+          })
+        )
+      )
+    }
 
     async function verificarDisponibilidade() {
       try {
@@ -871,7 +871,7 @@ export default function NovoAgendamentoChromebooks() {
                 value={dataFim}
                 min={data || undefined}
                 onChange={(e) => setDataFim(e.target.value)}
-                required={tipoRecorrencia !== 'unico'}
+                required={true}
               />
 
               {datasDoAgendamento.length > 0 ? (

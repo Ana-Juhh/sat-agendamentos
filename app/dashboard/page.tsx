@@ -10,6 +10,8 @@ import {
   ClipboardList,
   QrCode,
   Users,
+  LayoutDashboard,
+  MonitorCheck,
 } from "lucide-react";
 
 import { pb } from "@/lib/pocketbase";
@@ -52,6 +54,9 @@ export default function Dashboard() {
   const canSeeScanner = canUseQrScanner(role);
   const canManageUsers = isSuperAdmin(role);
 
+  const canSeeTvDashboards =
+    canManageAgenda || canSeeReports || canManageUsers;
+
   return (
     <>
       <HeaderDashboard />
@@ -79,6 +84,22 @@ export default function Dashboard() {
             icon={<CalendarDays size={48} />}
             href="/agendamentos/agenda"
           />
+
+          {canSeeTvDashboards && (
+            <>
+              <ServiceCard
+                title="Dashboard de tarefas"
+                icon={<LayoutDashboard size={48} />}
+                href="/dashboard/view"
+              />
+
+              <ServiceCard
+                title="Dashboard de agendamentos"
+                icon={<MonitorCheck size={48} />}
+                href="/dashboard/agendamentos-tv"
+              />
+            </>
+          )}
 
           {canManageEquipments && (
             <ServiceCard

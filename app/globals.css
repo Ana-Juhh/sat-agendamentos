@@ -48,6 +48,10 @@
     color-scheme: light;
   }
 
+  html[data-theme='light'] .border:not([class*='border-']) {
+    border-color: rgba(203, 213, 225, 0.9);
+  }
+
   html[data-theme='dark'] {
     color-scheme: dark;
   }
@@ -309,7 +313,7 @@
   align-items: center;
   gap: 0.7rem;
   border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(255, 255, 255, 0.96);
   padding: 0.8rem 1rem;
   color: #0f172a;
@@ -323,7 +327,7 @@
 
 .theme-toggle:hover {
   transform: translateY(-2px);
-  border-color: rgba(96, 165, 250, 0.45);
+  border-color: rgba(96, 165, 250, 0.35);
 }
 
 .theme-toggle__icon {
@@ -384,6 +388,84 @@ html[data-theme='dark'] .theme-toggle {
 html[data-theme='dark'] .theme-toggle__icon {
   background: rgba(255, 255, 255, 0.12);
   color: #fde68a;
+}
+
+.admin-users-stat-icon {
+  flex-shrink: 0;
+}
+
+.admin-users-stat-icon--neutral {
+  color: #64748b;
+}
+
+.admin-users-stat-icon--superadmin {
+  color: #f59e0b;
+}
+
+.admin-users-stat-icon--admin {
+  color: #2563eb;
+}
+
+.admin-users-role-badge--superadmin {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-users-role-badge--admin {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.admin-users-role-badge--morning {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.admin-users-role-badge--afternoon {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.admin-users-role-badge--user {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-stat-icon--neutral {
+  color: #cbd5e1;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-stat-icon--superadmin {
+  color: #fbbf24;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-stat-icon--admin {
+  color: #60a5fa;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-role-badge--superadmin {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fde68a !important;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-role-badge--admin {
+  background: rgba(96, 165, 250, 0.18);
+  color: #bfdbfe !important;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-role-badge--morning {
+  background: rgba(192, 132, 252, 0.18);
+  color: #e9d5ff !important;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-role-badge--afternoon {
+  background: rgba(244, 114, 182, 0.18);
+  color: #fbcfe8 !important;
+}
+
+html[data-theme='dark'] .admin-users-page .admin-users-role-badge--user {
+  background: rgba(203, 213, 225, 0.14);
+  color: #e2e8f0 !important;
 }
 
 @media (max-width: 640px) {

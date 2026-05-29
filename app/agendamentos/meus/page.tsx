@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { pb } from '@/lib/pocketbase'
 import HeaderDashboard from '@/components/HeaderDashboard'
 import { AG_COLLECTION } from '@/lib/agendamentoConfig'
@@ -238,8 +238,10 @@ function periodoGrupo(grupo: GrupoAgendamento) {
   return `${formatarDataBR(grupo.dataInicio)} até ${formatarDataBR(grupo.dataFim)}`
 }
 
-export default function MeusAgendamentos() {
+function MeusAgendamentosContent() {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -498,7 +500,14 @@ export default function MeusAgendamentos() {
   }
 
   function irParaDevolucao(id: string) {
-    router.push(`/admin/agendamentos/${id}/devolucao`)
+    const query = searchParams.toString()
+    const paginaAtual = `${pathname}${query ? `?${query}` : ''}`
+
+    router.push(
+      `/admin/agendamentos/${id}/devolucao?returnTo=${encodeURIComponent(
+        paginaAtual
+      )}`
+    )
   }
 
   return (
@@ -516,14 +525,14 @@ export default function MeusAgendamentos() {
               : 'Meus Agendamentos'}
         </h1>
 
-        <div className="bg-white rounded-2xl shadow-sm border p-5 mb-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
             <div>
               <label className="block font-medium mb-2">Data inicial</label>
 
               <input
                 type="date"
-                className="w-full border rounded-lg px-4 py-2"
+                className="w-full border border-slate-300 rounded-lg px-4 py-2"
                 value={dataInicioFiltro}
                 onChange={(e) => setDataInicioFiltro(e.target.value)}
               />
@@ -534,7 +543,7 @@ export default function MeusAgendamentos() {
 
               <input
                 type="date"
-                className="w-full border rounded-lg px-4 py-2"
+                className="w-full border border-slate-300 rounded-lg px-4 py-2"
                 value={dataFimFiltro}
                 onChange={(e) => setDataFimFiltro(e.target.value)}
               />
@@ -558,7 +567,7 @@ export default function MeusAgendamentos() {
                   setDataInicioFiltro('')
                   setDataFimFiltro('')
                 }}
-                className="px-4 py-2 rounded-lg border border-slate-400 font-semibold hover:bg-slate-700 hover:text-white hover:border-slate-600"
+                className="px-4 py-2 rounded-lg border border-slate-300 font-semibold hover:bg-slate-50 hover:border-slate-400"
               >
                 Ver todos
               </button>
@@ -571,7 +580,7 @@ export default function MeusAgendamentos() {
             Carregando...
           </div>
         ) : grupos.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border">
+          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-slate-200">
             <p className="text-gray-500 text-lg">
               Nenhum agendamento ativo encontrado
             </p>
@@ -584,7 +593,7 @@ export default function MeusAgendamentos() {
               return (
                 <div
                   key={dataISO}
-                  className="bg-white rounded-2xl shadow-sm p-6 border"
+                  className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200"
                 >
                   <h2 className="text-lg font-bold mb-4 text-gray-700">
                     {formatarDataBR(dataISO)}
@@ -601,7 +610,7 @@ export default function MeusAgendamentos() {
                       return (
                         <div
                           key={grupo.chave}
-                          className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition"
+                          className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 p-4 border border-slate-200 rounded-xl hover:border-blue-300 transition"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -676,7 +685,7 @@ export default function MeusAgendamentos() {
                                 onClick={() =>
                                   editarAgendamentoChromebooks(agendamento.id)
                                 }
-                                className="px-3 py-2 rounded-lg border text-sm font-semibold hover:bg-gray-50"
+                                className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold hover:bg-gray-50"
                               >
                                 Editar
                               </button>
@@ -702,4 +711,18 @@ export default function MeusAgendamentos() {
       </main>
     </>
   )
+}
+
+export default function MeusAgendamentos() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center text-gray-500">
+          Carregando agendamentos...
+        </div>
+      }
+    >
+      <MeusAgendamentosContent />
+    </Suspense>
+  );
 }

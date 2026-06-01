@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlarmClockCheck,
@@ -8,15 +8,18 @@ import {
   Boxes,
   CheckSquare,
   Clock3,
+  ChevronRight,
   LayoutDashboard,
 } from "lucide-react";
 
+import { AG_COLLECTION } from "@/lib/agendamentoConfig";
 import {
   getClickUpAssigneesText,
   getClickUpPriorityText,
   getClickUpStatusText,
   getClickUpTaskDescription,
 } from "@/lib/clickup";
+import { pb } from "@/lib/pocketbase";
 
 type Task = {
   id: string;
@@ -45,6 +48,30 @@ type ClickUpResponse = {
   doing?: Task[];
 };
 
+type Agendamento = {
+  id: string;
+  data: string;
+  inicio: number;
+  fim: number;
+  status?: string;
+  expand?: {
+    usuario?: {
+      name?: string;
+      email?: string;
+    };
+  };
+};
+
+type Emprestimo = {
+  id: string;
+  status?: string;
+  agendamento?: string;
+  agendamentos?: string;
+  entrada_em?: string;
+  devolvido_em?: string;
+  created?: string;
+};
+
 const REFRESH_SECONDS = 60;
 const DASHBOARD_VIEW_CACHE_KEY = "dashboard-view-cache-v2";
 const DASHBOARD_VIEW_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
@@ -62,6 +89,15 @@ function getLocalIsoDate(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getDateKeyFromPocketBase(value?: string) {
+  if (!value) return "";
+  return value.slice(0, 10);
+}
+
+function currentMinutes(date: Date) {
+  return date.getHours() * 60 + date.getMinutes();
 }
 
 function formatTime(date: Date | null) {
@@ -313,7 +349,7 @@ function SmoothMarqueeArea({
   const pauseUntilRef = useRef(0);
   const isHoveringRef = useRef(false);
 
-  const getLimits = useCallback(() => {
+  function getLimits() {
     const viewport = viewportRef.current;
     const firstBlock = firstBlockRef.current;
 
@@ -331,42 +367,39 @@ function SmoothMarqueeArea({
       cycleHeight: blockHeight + 16,
       maxOffset: Math.max(0, blockHeight - viewportHeight),
     };
-  }, []);
+  }
 
-  const applyOffset = useCallback(
-    (nextOffset: number, wrap = false) => {
-      const inner = innerRef.current;
-      const { cycleHeight, maxOffset } = getLimits();
+  function applyOffset(nextOffset: number, wrap = false) {
+    const inner = innerRef.current;
+    const { cycleHeight, maxOffset } = getLimits();
 
-      if (!inner) return;
+    if (!inner) return;
 
-      let normalized = nextOffset;
+    let normalized = nextOffset;
 
-      if (duplicate && cycleHeight > 0) {
-        while (normalized < 0) {
-          normalized += cycleHeight;
-        }
-
-        while (normalized >= cycleHeight) {
-          normalized -= cycleHeight;
-        }
-      } else if (wrap) {
-        if (normalized < 0) {
-          normalized = maxOffset;
-        }
-
-        if (normalized > maxOffset) {
-          normalized = 0;
-        }
-      } else {
-        normalized = Math.max(0, Math.min(normalized, maxOffset));
+    if (duplicate && cycleHeight > 0) {
+      while (normalized < 0) {
+        normalized += cycleHeight;
       }
 
-      offsetRef.current = normalized;
-      inner.style.transform = `translate3d(0, -${normalized}px, 0)`;
-    },
-    [duplicate, getLimits]
-  );
+      while (normalized >= cycleHeight) {
+        normalized -= cycleHeight;
+      }
+    } else if (wrap) {
+      if (normalized < 0) {
+        normalized = maxOffset;
+      }
+
+      if (normalized > maxOffset) {
+        normalized = 0;
+      }
+    } else {
+      normalized = Math.max(0, Math.min(normalized, maxOffset));
+    }
+
+    offsetRef.current = normalized;
+    inner.style.transform = `translate3d(0, -${normalized}px, 0)`;
+  }
 
   useEffect(() => {
     offsetRef.current = 0;
@@ -411,7 +444,7 @@ function SmoothMarqueeArea({
     frame = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(frame);
-  }, [speed, duplicate, applyOffset]);
+  }, [speed, duplicate]);
 
   function pauseAutoScroll(milliseconds = 8000) {
     pauseUntilRef.current = performance.now() + milliseconds;
@@ -472,6 +505,19 @@ export default function DashboardView() {
   const [todoTasks, setTodoTasks] = useState<Task[]>([]);
   const [doingTasks, setDoingTasks] = useState<Task[]>([]);
   const [diary, setDiary] = useState<Task[]>([]);
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
+
+  function irParaAgendamentosAgora() {
+    if (hasNavigatedRef.current) return;
+
+    hasNavigatedRef.current = true;
+    setIsLeaving(true);
+
+    window.setTimeout(() => {
+      router.replace("/dashboard/agendamentos-tv");
+    }, 520);
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsMounted(true), 40);
@@ -526,31 +572,59 @@ export default function DashboardView() {
   }, []);
 
   useEffect(() => {
-    if (secondsRemaining <= 0 && !hasNavigatedRef.current) {
-      hasNavigatedRef.current = true;
-      setIsLeaving(true);
-
-      const timer = window.setTimeout(() => {
-        router.replace("/dashboard/agendamentos-tv");
-      }, 650);
-
-      return () => window.clearTimeout(timer);
+    if (secondsRemaining > 0 || hasNavigatedRef.current) {
+      return;
     }
+
+    hasNavigatedRef.current = true;
+    setIsLeaving(true);
+
+    const timer = window.setTimeout(() => {
+      router.replace("/dashboard/agendamentos-tv");
+    }, 520);
+
+    return () => window.clearTimeout(timer);
   }, [secondsRemaining, router]);
 
   useEffect(() => {
+    async function loadAgendamentosData() {
+      const collectionNames = Array.from(
+        new Set([AG_COLLECTION, "agendamentos", "agendamentos_tmp"])
+      );
+
+      const results = await Promise.allSettled(
+        collectionNames.map((collectionName) =>
+          pb.collection(collectionName).getFullList<Agendamento>({
+            expand: "usuario",
+            sort: "data,inicio",
+          })
+        )
+      );
+
+      const merged = results.flatMap((result) =>
+        result.status === "fulfilled" ? result.value : []
+      );
+
+      return Array.from(new Map(merged.map((item) => [item.id, item])).values());
+    }
+
     async function loadDashboard() {
       setIsLoadingDashboard(true);
 
       try {
-        const [tasksResult, diaryResult] = await Promise.allSettled([
-          fetch("/api/tasks", { cache: "no-store" }).then(
-            (response) => response.json() as Promise<ClickUpResponse>
-          ),
-          fetch("/api/diary", { cache: "no-store" }).then(
-            (response) => response.json() as Promise<ClickUpResponse>
-          ),
-        ]);
+        const [tasksResult, diaryResult, agendamentosResult, emprestimosResult] =
+          await Promise.allSettled([
+            fetch("/api/tasks", { cache: "no-store" }).then(
+              (response) => response.json() as Promise<ClickUpResponse>
+            ),
+            fetch("/api/diary", { cache: "no-store" }).then(
+              (response) => response.json() as Promise<ClickUpResponse>
+            ),
+            loadAgendamentosData(),
+            pb.collection("emprestimos").getFullList<Emprestimo>({
+              sort: "-created",
+            }),
+          ]);
 
         let nextTodoTasks: Task[] | null = null;
         let nextDoingTasks: Task[] | null = null;
@@ -572,6 +646,14 @@ export default function DashboardView() {
             : [];
 
           setDiary(nextDiary);
+        }
+
+        if (agendamentosResult.status === "fulfilled") {
+          setAgendamentos(agendamentosResult.value);
+        }
+
+        if (emprestimosResult.status === "fulfilled") {
+          setEmprestimos(emprestimosResult.value);
         }
 
         if (nextTodoTasks && nextDoingTasks && nextDiary) {
@@ -606,6 +688,7 @@ export default function DashboardView() {
 
   const todayIso = now ? getLocalIsoDate(now) : null;
   const previousSchoolDayIso = now ? getPreviousSchoolDayIso(now) : null;
+  const todayMinutes = now ? currentMinutes(now) : null;
 
   const diaryVisible = useMemo(() => {
     if (!todayIso || !previousSchoolDayIso) return [];
@@ -638,6 +721,52 @@ export default function DashboardView() {
       return (a.name || "").localeCompare(b.name || "");
     });
   }, [diary, todayIso, previousSchoolDayIso]);
+
+  const agendamentosHoje = useMemo(
+    () =>
+      agendamentos
+        .filter(
+          (item) =>
+            (!todayIso || getDateKeyFromPocketBase(item.data) === todayIso) &&
+            item.status !== "cancelado"
+        )
+        .sort((a, b) => a.inicio - b.inicio),
+    [agendamentos, todayIso]
+  );
+
+  const emprestimosEmUso = useMemo(
+    () => emprestimos.filter((item) => item.status === "em_uso"),
+    [emprestimos]
+  );
+
+  const agendamentosComStatus = useMemo(
+    () =>
+      agendamentosHoje.map((agendamento) => {
+        const emprestimosDoAgendamento = emprestimosEmUso.filter(
+          (emprestimo) => {
+            return (
+              emprestimo.agendamento === agendamento.id ||
+              emprestimo.agendamentos === agendamento.id
+            );
+          }
+        );
+
+        const hasPendingReturn = emprestimosDoAgendamento.length > 0;
+
+        const isLate =
+          todayMinutes !== null &&
+          todayMinutes > agendamento.fim &&
+          hasPendingReturn;
+
+        return {
+          ...agendamento,
+          hasPendingReturn,
+          isLate,
+          emprestimosAtivos: emprestimosDoAgendamento.length,
+        };
+      }),
+    [agendamentosHoje, emprestimosEmUso, todayMinutes]
+  );
 
   const totalTasks = todoTasks.length + doingTasks.length;
 
@@ -693,7 +822,7 @@ export default function DashboardView() {
             {diaryVisible.length > 0 ? (
               <SmoothMarqueeArea
                 resetKey={diaryResetKey}
-                speed={0.38}
+                speed={0.65}
                 duplicate={false}
                 className="h-full min-h-0 pr-2"
               >
@@ -847,6 +976,13 @@ export default function DashboardView() {
           </section>
         </section>
       </div>
+
+      <HoverPageJumpButton
+        side="right"
+        label="Ir para agendamentos"
+        onClick={irParaAgendamentosAgora}
+        icon={<ChevronRight className="h-7 w-7" />}
+      />
     </main>
   );
 }
@@ -1131,6 +1267,42 @@ function DiaryTimelineCard({
         </article>
       </div>
     </div>
+  );
+}
+
+function HoverPageJumpButton({
+  side,
+  label,
+  icon,
+  onClick,
+}: {
+  side: "left" | "right";
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  const isRight = side === "right";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`group fixed top-1/2 z-50 flex h-36 w-16 -translate-y-1/2 items-center bg-transparent text-white/0 outline-none transition-all duration-300 hover:bg-white/[0.08] hover:text-white/85 focus-visible:bg-white/[0.10] focus-visible:text-white ${
+        isRight
+          ? "right-0 justify-end rounded-l-full pr-2"
+          : "left-0 justify-start rounded-r-full pl-2"
+      }`}
+    >
+      <span
+        className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-slate-950/55 opacity-0 shadow-[0_18px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 ${
+          isRight ? "translate-x-4" : "-translate-x-4"
+        }`}
+      >
+        {icon}
+      </span>
+    </button>
   );
 }
 

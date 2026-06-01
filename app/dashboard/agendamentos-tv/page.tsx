@@ -1,12 +1,13 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Bell,
   AlertTriangle,
   Beaker,
-  Bell,
   CalendarDays,
+  ChevronLeft,
   Clock3,
   Laptop,
   LoaderCircle,
@@ -19,28 +20,8 @@ import { AG_COLLECTION } from "@/lib/agendamentoConfig";
 import { ESPACOS_COLLECTION } from "@/lib/espacoConfig";
 import { pb } from "@/lib/pocketbase";
 
-type Registro = {
-  id?: string;
-  data?: string;
-  inicio?: number | string;
-  fim?: number | string;
-  turma?: string;
-  classe?: string;
-  tipo?: string;
-  status?: string;
-  status_entrega?: string;
-  usuario_nome?: string;
-  responsavel_nome?: string;
-  email?: string;
-  observacoes?: string;
-  observacao?: string;
-  chromebooks?: Array<string | Record<string, unknown>>;
-  expand?: {
-    usuario?: { name?: string; nome?: string; email?: string };
-    chromebooks?: Array<{ id?: string; codigo?: string; nome?: string; name?: string }>;
-  };
-  [key: string]: unknown;
-};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Registro = Record<string, any>;
 
 type OrigemAgendamento = "chromebooks" | "maker" | "lab" | "espaco";
 
@@ -365,6 +346,17 @@ export default function AgendamentosTvPage() {
   const [loading, setLoading] = useState(true);
   const [agendamentos, setAgendamentos] = useState<AgendamentoTV[]>([]);
 
+  const irParaTarefasAgora = useCallback(() => {
+    if (hasNavigatedRef.current) return;
+
+    hasNavigatedRef.current = true;
+    setIsLeaving(true);
+
+    window.setTimeout(() => {
+      router.replace("/dashboard/view");
+    }, 520);
+  }, [router]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => setIsMounted(true), 40);
 
@@ -393,17 +385,10 @@ export default function AgendamentosTvPage() {
   }, []);
 
   useEffect(() => {
-    if (secondsRemaining <= 0 && !hasNavigatedRef.current) {
-      hasNavigatedRef.current = true;
-      setIsLeaving(true);
-
-      const timer = window.setTimeout(() => {
-        router.replace("/dashboard/view");
-      }, 650);
-
-      return () => window.clearTimeout(timer);
+    if (secondsRemaining <= 0) {
+      irParaTarefasAgora();
     }
-  }, [secondsRemaining, router]);
+  }, [secondsRemaining, irParaTarefasAgora]);
 
   useEffect(() => {
     async function carregarAgendamentos() {
@@ -639,7 +624,50 @@ export default function AgendamentosTvPage() {
           </section>
         </section>
       </div>
+
+      <HoverPageJumpButton
+        side="left"
+        label="Ir para tarefas"
+        onClick={irParaTarefasAgora}
+        icon={<ChevronLeft className="h-7 w-7" />}
+      />
     </main>
+  );
+}
+
+function HoverPageJumpButton({
+  side,
+  label,
+  icon,
+  onClick,
+}: {
+  side: "left" | "right";
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  const isRight = side === "right";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`group fixed top-1/2 z-50 flex h-36 w-16 -translate-y-1/2 items-center bg-transparent text-white/0 outline-none transition-all duration-300 hover:bg-white/[0.08] hover:text-white/85 focus-visible:bg-white/[0.10] focus-visible:text-white ${
+        isRight
+          ? "right-0 justify-end rounded-l-full pr-2"
+          : "left-0 justify-start rounded-r-full pl-2"
+      }`}
+    >
+      <span
+        className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-slate-950/55 opacity-0 shadow-[0_18px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 ${
+          isRight ? "translate-x-4" : "-translate-x-4"
+        }`}
+      >
+        {icon}
+      </span>
+    </button>
   );
 }
 

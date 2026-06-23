@@ -166,16 +166,17 @@ export default function CarrinhoPage() {
         totalComProblema,
       });
 
-     const relatorio = await pb.collection("relatorios_checagem").create({
-  carrinho: String(carrinhoId),
-  turno,
-  verificadoPor: user.id,
-  verificadoEm: agora.toISOString(),
-  dataReferencia: agora.toISOString().slice(0, 10),
-  totalChromebooks: Number(totalChromebooks),
-  totalVerificados: Number(totalVerificados),
-  totalComProblema: Number(totalComProblema),
-});
+      const relatorio = await pb.collection("relatorios_checagem").create({
+        carrinho: String(carrinhoId),
+        turno,
+        verificadoPor: user.id,
+        verificadoEm: agora.toISOString(),
+        dataReferencia: agora.toISOString().slice(0, 10),
+        totalChromebooks: Number(totalChromebooks),
+        totalVerificados: Number(totalVerificados),
+        totalComProblema: Number(totalComProblema),
+      })
+
 
       for (const chrome of chromebooks) {
         const dados = formData[chrome.id];
@@ -221,10 +222,15 @@ export default function CarrinhoPage() {
             : "/checagem/carrinhos"
         );
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao salvar checagem:", err);
-      console.error("PocketBase response:", err?.response);
-      console.error("PocketBase data:", err?.response?.data);
+      const pbErr = err as { response?: { data?: unknown } };
+      console.error("PocketBase response:", pbErr?.response);
+      console.error("PocketBase data:", pbErr?.response?.data);
+      void pbErr;
+
+
+
       alert("Erro ao salvar checagem");
     } finally {
       setSalvando(false);

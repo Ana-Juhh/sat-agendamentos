@@ -13,6 +13,7 @@ import {
   LoaderCircle,
   MonitorCheck,
   PackageCheck,
+  ShoppingCart,
   Wrench,
 } from "lucide-react";
 
@@ -23,7 +24,7 @@ import { pb } from "@/lib/pocketbase";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Registro = Record<string, any>;
 
-type OrigemAgendamento = "chromebooks" | "maker" | "lab" | "espaco";
+type OrigemAgendamento = "chromebooks" | "maker" | "lab" | "carrinho" | "espaco";
 
 type AgendamentoTV = {
   id: string;
@@ -43,6 +44,7 @@ type AgendamentoTV = {
 const REFRESH_SECONDS = 60;
 const DIAS_FUTUROS = 7;
 const DIAS_ATRASO = 7;
+const DIAS_ATRASO_ATUAL = 1;
 
 function getLocalIsoDate(date: Date) {
   const year = date.getFullYear();
@@ -134,12 +136,14 @@ function codigosChromebooks(registro: Registro) {
 function nomeEspaco(tipo?: string) {
   if (tipo === "maker") return "Sala Maker";
   if (tipo === "lab") return "Lab. de Ciências";
+  if (tipo === "carrinhos") return "Carrinho de Chromebooks";
   return "Espaço";
 }
 
 function origemEspaco(tipo?: string): OrigemAgendamento {
   if (tipo === "maker") return "maker";
   if (tipo === "lab") return "lab";
+  if (tipo === "carrinhos") return "carrinho";
   return "espaco";
 }
 
@@ -165,12 +169,13 @@ function normalizarAgendamentoChromebook(item: Registro): AgendamentoTV {
 
 function normalizarAgendamentoEspaco(item: Registro): AgendamentoTV {
   const origem = origemEspaco(item.tipo);
-  const recurso = nomeEspaco(item.tipo);
+  const titulo = nomeEspaco(item.tipo);
+  const recurso = origem === "carrinho" ? item.carrinho || titulo : titulo;
 
   return {
     id: `espaco-${item.id}`,
     origem,
-    titulo: recurso,
+    titulo,
     recurso,
     data: getDateKey(item.data),
     inicio: Number(item.inicio || 0),
@@ -226,13 +231,16 @@ function getStatusAgendamento(item: AgendamentoTV, now: Date) {
 }
 
 function deveMostrarAgendamento(item: AgendamentoTV, todayISO: string) {
-  if (item.data >= todayISO) return true;
-  if (item.origem !== "chromebooks") return false;
-  return item.statusEntrega !== "devolvido";
+  if (item.origem === "chromebooks") {
+    return item.statusEntrega !== "devolvido";
+  }
+
+  return item.data >= todayISO;
 }
 
 function resourceIcon(origem: OrigemAgendamento) {
   if (origem === "chromebooks") return <Laptop className="h-5 w-5" />;
+  if (origem === "carrinho") return <ShoppingCart className="h-5 w-5" />;
   if (origem === "maker") return <Wrench className="h-5 w-5" />;
   if (origem === "lab") return <Beaker className="h-5 w-5" />;
   return <PackageCheck className="h-5 w-5" />;
@@ -467,11 +475,20 @@ export default function AgendamentosTvPage() {
     (item) => item.origem === "chromebooks"
   );
 
-  const maker = agendamentosUnicos.filter((item) => item.origem === "maker");
-  const lab = agendamentosUnicos.filter((item) => item.origem === "lab");
+  const carrinhos = agendamentosUnicos.filter(
+    (item) => item.origem === "carrinho"
+  );
+
+  const salas = agendamentosUnicos.filter(
+    (item) => item.origem === "maker" || item.origem === "lab"
+  );
+
+  const limiteAtrasoAtual = addDaysIso(getLocalIsoDate(safeNow), -DIAS_ATRASO_ATUAL);
 
   const atrasados = agendamentosUnicos.filter(
-    (item) => getStatusAgendamento(item, safeNow).variant === "late"
+    (item) =>
+      getStatusAgendamento(item, safeNow).variant === "late" &&
+      item.data >= limiteAtrasoAtual
   );
 
   const emUso = agendamentosUnicos.filter(
@@ -483,8 +500,8 @@ export default function AgendamentosTvPage() {
   const inUseCount = emUso.length;
 
   const chromebooksKey = chromebooks.map((item) => item.id).join("|");
-  const makerKey = maker.map((item) => item.id).join("|");
-  const labKey = lab.map((item) => item.id).join("|");
+  const carrinhosKey = carrinhos.map((item) => item.id).join("|");
+  const salasKey = salas.map((item) => item.id).join("|");
   const atrasadosKey = atrasados.map((item) => item.id).join("|");
 
   return (
@@ -601,25 +618,25 @@ export default function AgendamentosTvPage() {
             />
 
             <ResourceColumn
-              title="Sala Maker"
-              badge={`${maker.length} agend.`}
+              title="Carrinhos"
+              badge={`${carrinhos.length} agend.`}
               tone="cyan"
-              items={maker}
-              resetKey={makerKey}
+              items={carrinhos}
+              resetKey={carrinhosKey}
               now={safeNow}
               loading={loading}
-              emptyText="Nenhum agendamento da Sala Maker."
+              emptyText="Nenhum agendamento de Carrinho."
             />
 
             <ResourceColumn
-              title="Lab. Ciências"
-              badge={`${lab.length} agend.`}
+              title="Salas"
+              badge={`${salas.length} agend.`}
               tone="emerald"
-              items={lab}
-              resetKey={labKey}
+              items={salas}
+              resetKey={salasKey}
               now={safeNow}
               loading={loading}
-              emptyText="Nenhum agendamento do Lab. de Ciências."
+              emptyText="Nenhum agendamento da Sala Maker ou Lab. de Ciências."
             />
           </section>
         </section>

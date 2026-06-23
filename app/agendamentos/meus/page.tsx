@@ -37,7 +37,8 @@ type BaseAgendamento = {
   turma?: string
   classe?: string
   observacoes?: string
-  tipo?: 'chromebooks' | 'lab' | 'maker'
+  tipo?: 'chromebooks' | 'lab' | 'maker' | 'carrinhos'
+  carrinho?: string
   grupo_agendamento?: string
   expand?: {
     chromebooks?: Chromebook[]
@@ -190,6 +191,11 @@ function classeStatusEntrega(status?: string) {
 function nomeTipoAgendamento(agendamento: Agendamento, totalDias: number) {
   if (agendamento.tipo === 'lab') return 'Lab. de Ciências'
   if (agendamento.tipo === 'maker') return 'Sala Maker'
+  if (agendamento.tipo === 'carrinhos') {
+    return agendamento.carrinho
+      ? `Carrinho de Chromebook — ${agendamento.carrinho}`
+      : 'Carrinho de Chromebook'
+  }
 
   const chromes = agendamento.expand?.chromebooks ?? []
   const quantidade = chromes.length || agendamento.chromebooks?.length || 0
@@ -627,8 +633,8 @@ function MeusAgendamentosContent() {
                                   {nomeStatusEntrega(statusEntrega)}
                                 </span>
                               ) : (
-                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700">
-                                  Reservado
+                                <span className="text-xs font-semibold px-2 py-1 rounded-full bg-yellow-300 text-black">
+                                    Reservado
                                 </span>
                               )}
                             </div>
@@ -657,6 +663,15 @@ function MeusAgendamentosContent() {
                               <p className="text-sm text-gray-600 break-words">
                                 <strong>Chromebooks:</strong>{' '}
                                 {listaCodigos || 'Não informado'}
+                              </p>
+                            ) : null}
+
+                            {agendamento.tipo === 'carrinhos' && agendamento.carrinho ? (
+                              <p className="text-sm text-gray-600">
+                                <strong>Carrinho:</strong>{' '}
+                                <span className="inline-block bg-lime-300 text-black text-xs font-semibold px-2 py-0.5 rounded-full ml-1">
+                                  {agendamento.carrinho}
+                                </span>
                               </p>
                             ) : null}
 

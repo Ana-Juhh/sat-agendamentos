@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
@@ -223,17 +224,43 @@ function nomeTurmaClasse(turma?: string, classe?: string) {
   return `${turma} ${classe}`
 }
 
-function agendamentoBateNoHorario(agendamento: any, horario: any) {
-  return agendamento.inicio < horario.fim && agendamento.fim > horario.inicio
+function agendamentoBateNoHorario(
+  agendamento: { inicio?: number; fim?: number },
+  horario: { inicio: number; fim: number }
+) {
+  const inicio = agendamento.inicio ?? 0
+  const fim = agendamento.fim ?? 0
+
+  return inicio < horario.fim && fim > horario.inicio
 }
 
 export default function NovoAgendamentoLab() {
+
   const router = useRouter()
   const formRef = useRef<HTMLDivElement | null>(null)
 
   const [data, setData] = useState(hojeISO())
   const [modoAgenda, setModoAgenda] = useState<ModoAgenda>('semana')
-  const [agendamentos, setAgendamentos] = useState<any[]>([])
+  type AgendamentoLab = {
+    id: string
+    data?: string
+    inicio?: number
+    fim?: number
+    status_entrega?: string
+    turma?: string
+    classe?: string
+    observacoes?: string
+    expand?: {
+      usuario?: {
+        name?: string
+        nome?: string
+        email?: string
+      }
+    }
+  }
+
+  const [agendamentos, setAgendamentos] = useState<AgendamentoLab[]>([])
+
   const [carregandoAgenda, setCarregandoAgenda] = useState(false)
   const [periodoFiltroAgenda, setPeriodoFiltroAgenda] = useState('')
 
@@ -307,8 +334,10 @@ export default function NovoAgendamentoLab() {
     )
   }, [agendamentosOrdenados, horariosDaAgenda, periodoFiltroAgenda])
 
-  const agendamentosPorData = useMemo<Record<string, any[]>>(() => {
-    return agendamentosVisiveis.reduce((acc: Record<string, any[]>, agendamento) => {
+  const agendamentosPorData = useMemo<Record<string, AgendamentoLab[]>>(() => {
+    return agendamentosVisiveis.reduce(
+      (acc: Record<string, AgendamentoLab[]>, agendamento) => {
+
       const dataAgendamento = normalizarDataISO(agendamento.data || '')
 
       if (!dataAgendamento) return acc

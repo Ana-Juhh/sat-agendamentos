@@ -1,0 +1,18 @@
+[
+  { "turma": "6º Ano A", "segmento": "FUND2", "carrinhos_permitidos": ["C3"], "turno": "manha", "pb_turma": "6 ano", "pb_classe": "A" },
+  { "turma": "7º Ano A", "segmento": "FUND2", "carrinhos_permitidos": ["C3"], "turno": "manha", "pb_turma": "7 ano", "pb_classe": "A" },
+  { "turma": "7º Ano B", "segmento": "FUND2", "carrinhos_permitidos": ["C3"], "turno": "tarde", "pb_turma": "7 ano", "pb_classe": "B" },
+  { "turma": "8º Ano A", "segmento": "FUND2", "carrinhos_permitidos": ["C4"], "turno": "manha", "pb_turma": "8 ano", "pb_classe": "A" },
+  { "turma": "6º Ano B", "segmento": "FUND2", "carrinhos_permitidos": ["C4"], "turno": "tarde", "pb_turma": "6 ano", "pb_classe": "B" },
+  { "turma": "9º Ano A", "segmento": "FUND2", "carrinhos_permitidos": ["C5"], "turno": "manha", "pb_turma": "9 ano", "pb_classe": "A" },
+  { "turma": "8º Ano B", "segmento": "FUND2", "carrinhos_permitidos": ["C5"], "turno": "tarde", "pb_turma": "8 ano", "pb_classe": "B" },
+  { "turma": "9º Ano B", "segmento": "FUND2", "carrinhos_permitidos": ["C5"], "turno": "tarde", "pb_turma": "9 ano", "pb_classe": "B" },
+  { "turma": "5º Ano A", "segmento": "FUND1", "carrinhos_permitidos": ["C3", "C4"], "turno": "manha", "pb_turma": "5 ano", "pb_classe": "A" },
+  { "turma": "4º Ano C", "segmento": "FUND1", "carrinhos_permitidos": ["C3", "C4"], "turno": "tarde", "pb_turma": "4 ano", "pb_classe": "C" },
+  { "turma": "5º Ano B", "segmento": "FUND1", "carrinhos_permitidos": ["C3", "C4"], "turno": "tarde", "pb_turma": "5 ano", "pb_classe": "B" },
+  { "turma": "4º Ano A", "segmento": "FUND1", "carrinhos_permitidos": ["C1", "C2"], "turno": "manha", "pb_turma": "4 ano", "pb_classe": "A" },
+  { "turma": "4º Ano B", "segmento": "FUND1", "carrinhos_permitidos": ["C1", "C2"], "turno": "manha", "pb_turma": "4 ano", "pb_classe": "B" },
+  { "turma": "3º Ano A", "segmento": "FUND1", "carrinhos_permitidos": ["C1", "C2"], "turno": "manha", "pb_turma": "3 ano", "pb_classe": "A" },
+  { "turma": "3º Ano B", "segmento": "FUND1", "carrinhos_permitidos": ["C1", "C2"], "turno": "manha", "pb_turma": "3 ano", "pb_classe": "B" },
+  { "turma": "3º Ano C", "segmento": "FUND1", "carrinhos_permitidos": ["C1", "C2"], "turno": "tarde", "pb_turma": "3 ano", "pb_classe": "C" }
+]

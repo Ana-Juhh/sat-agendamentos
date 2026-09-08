@@ -1,0 +1,25 @@
+{
+  "FUND2": {
+    "confirmado": true,
+    "observacao": "Confirmado pela coordenacao. Sao os mesmos valores ja usados hoje em app/agendamentos/novo/carrinhos/page.tsx (HORARIOS_AULA, periodo 'manha').",
+    "periodos": {
+      "1": { "inicio": "07:30", "fim": "08:20" },
+      "2": { "inicio": "08:20", "fim": "09:10" },
+      "3": { "inicio": "09:30", "fim": "10:20" },
+      "4": { "inicio": "10:20", "fim": "11:10" },
+      "5": { "inicio": "11:10", "fim": "12:00" },
+      "6": { "inicio": "12:00", "fim": "12:50", "confirmado": false, "observacao": "Reaproveitado do HORARIOS_AULA existente, mas o enunciado original marcou a 6a aula como nao confirmada. Confirmar com a Lilian." }
+    }
+  },
+  "FUND1": {
+    "confirmado": false,
+    "observacao": "PLACEHOLDER. So o inicio da 1a aula (07:30) foi confirmado; a duracao de cada periodo/intervalo ainda NAO foi confirmada com a coordenacao -- os horarios abaixo so deslocam o bloco antigo (que comecava as 07:15) em +15min, mantendo a mesma duracao de aula/intervalo que ja estava aqui. Editar apenas os campos 'inicio'/'fim' abaixo quando a Lilian confirmar os sinos reais -- nenhum outro arquivo precisa mudar.",
+    "periodos": {
+      "1": { "inicio": "07:30", "fim": "08:15" },
+      "2": { "inicio": "08:15", "fim": "09:00" },
+      "3": { "inicio": "09:00", "fim": "09:45" },
+      "4": { "inicio": "10:05", "fim": "10:50" },
+      "5": { "inicio": "10:50", "fim": "11:35" }
+    }
+  }
+}

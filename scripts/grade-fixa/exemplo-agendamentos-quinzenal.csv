@@ -1,0 +1,14 @@
+Data,Turma,Periodo_Aula,Carrinho_ID,Disciplina,Observacoes
+2026-08-31,6º Ano A,1,C3,Matemática,
+2026-08-31,7º Ano B,2,C3,Português,
+2026-08-31,5º Ano A,3,C3,Matemática,Fund I no mesmo carrinho do Fund II - ver nota de conflito no README
+2026-08-31,8º Ano A,1,C4,Ciências,
+2026-08-31,4º Ano C,4,C4,Matemática,
+2026-08-31,9º Ano A,3,C5,Matemática,
+2026-08-31,8º Ano B,4,C5,Redação,quinzenal
+2026-09-01,6º Ano B,2,C4,Português,
+2026-09-01,5º Ano B,3,C4,Português,Fund I no mesmo carrinho do Fund II - ver nota de conflito no README
+2026-09-01,4º Ano C,1,C3,Ciências,
+2026-09-01,7º Ano A,2,C3,Matemática,periodos diferentes mas so 5min de intervalo - sem sobreposicao real
+2026-09-01,9º Ano B,1,C5,Educação Física,mensal
+2026-09-01,5º Ano A,5,C3,Ciências,

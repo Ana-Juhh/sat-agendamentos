@@ -169,6 +169,11 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function hojeISO() {
+  const hoje = new Date()
+  return formatarDataISO(hoje)
+}
+
 function gerarGrupoAgendamento() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID()
@@ -298,6 +303,27 @@ export default function NovoAgendamentoChromebooks() {
 
       return [...prev, valor].sort()
     })
+  }
+
+  function selecionarGrupo(quantidade: number) {
+    if (verificandoDisponibilidade || carregandoChromes) return
+
+    if (quantidade > limite) {
+      alert(
+        `Não dá pra selecionar ${quantidade} chromebooks de uma vez agora — faltando menos de 1h para o início, o limite é ${limite}.`
+      )
+      return
+    }
+
+    const disponiveis = chromebooks.filter((c) => chromeDisponivel(c)).map((c) => c.id)
+
+    if (disponiveis.length < quantidade) {
+      alert(
+        `Só há ${disponiveis.length} chromebook(s) disponível(is) nesse horário — selecionando todos eles.`
+      )
+    }
+
+    setChromebookIds(disponiveis.slice(0, quantidade))
   }
 
   function toggleChromebook(id: string) {
@@ -772,19 +798,35 @@ export default function NovoAgendamentoChromebooks() {
           <div>
             <label className="block font-medium mb-2">Data inicial</label>
 
-            <input
-              type="date"
-              className="w-full border rounded-lg px-4 py-2"
-              value={data}
-              onChange={(e) => {
-                setData(e.target.value)
+            <div className="flex gap-2">
+              <input
+                type="date"
+                className="w-full border rounded-lg px-4 py-2"
+                value={data}
+                onChange={(e) => {
+                  setData(e.target.value)
 
-                if (tipoRecorrencia === 'unico') {
-                  setDataFim('')
-                }
-              }}
-              required
-            />
+                  if (tipoRecorrencia === 'unico') {
+                    setDataFim('')
+                  }
+                }}
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setData(hojeISO())
+
+                  if (tipoRecorrencia === 'unico') {
+                    setDataFim('')
+                  }
+                }}
+                className="shrink-0 px-4 py-2 rounded-lg border font-semibold text-sm hover:bg-gray-50 whitespace-nowrap"
+              >
+                Hoje
+              </button>
+            </div>
           </div>
 
           <div>
@@ -931,6 +973,35 @@ export default function NovoAgendamentoChromebooks() {
               Escolha os Chromebooks ({chromebookIds.length}
               {limite !== 999 ? ` / ${limite}` : ''})
             </label>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {[5, 10].map((quantidade) => (
+                <button
+                  key={quantidade}
+                  type="button"
+                  onClick={() => selecionarGrupo(quantidade)}
+                  disabled={carregandoChromes || verificandoDisponibilidade || quantidade > limite}
+                  title={
+                    quantidade > limite
+                      ? `Bloqueado: faltando menos de 1h para o início, o limite é ${limite}.`
+                      : undefined
+                  }
+                  className="px-4 py-2 rounded-lg border font-semibold text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                >
+                  Selecionar {quantidade}
+                </button>
+              ))}
+
+              {chromebookIds.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setChromebookIds([])}
+                  className="px-4 py-2 rounded-lg border font-semibold text-sm text-red-600 hover:bg-red-50"
+                >
+                  Limpar seleção
+                </button>
+              ) : null}
+            </div>
 
             {verificandoDisponibilidade ? (
               <div className="text-sm text-gray-500 mb-3">

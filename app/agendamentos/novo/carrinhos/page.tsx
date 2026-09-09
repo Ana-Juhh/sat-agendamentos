@@ -189,7 +189,7 @@ export default function NovoAgendamentoCarrinhos() {
   const [mostrarForm,      setMostrarForm]      = useState(false)
 
   // Grade semanal fixa vinda da planilha do Google Sheets (ver
-  // /api/grade-semanal). Comeca com a grade fixa do codigo como fallback
+  // /grade-fixa-semanal). Comeca com a grade fixa do codigo como fallback
   // imediato, e troca assim que a planilha responder.
   const [gradeSemanal,       setGradeSemanal]       = useState<AulaFixaSemanal[]>(GRADE_SEMANAL_FIXA)
   const [fonteGradeSemanal,  setFonteGradeSemanal]  = useState<'carregando' | 'planilha' | 'padrao'>('carregando')
@@ -404,7 +404,7 @@ export default function NovoAgendamentoCarrinhos() {
 
   async function carregarGradeSemanal() {
     try {
-      const resp = await fetch('/api/grade-semanal', { cache: 'no-store' })
+      const resp = await fetch('/grade-fixa-semanal', { cache: 'no-store' })
       const dados = await resp.json()
       setGradeSemanal(Array.isArray(dados.linhas) && dados.linhas.length > 0 ? dados.linhas : GRADE_SEMANAL_FIXA)
       setFonteGradeSemanal(dados.fonte === 'planilha' ? 'planilha' : 'padrao')

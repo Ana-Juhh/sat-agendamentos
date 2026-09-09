@@ -7,7 +7,7 @@
 // partir do dia da semana da data selecionada.
 //
 // A GRADE_SEMANAL_FIXA abaixo é só o FALLBACK usado quando a planilha do
-// Google Sheets (ver /api/grade-semanal e GRADE_SEMANAL_SHEET_CSV_URL) não
+// Google Sheets (ver /grade-fixa-semanal e GRADE_SEMANAL_SHEET_CSV_URL) não
 // responde — a fonte de verdade do dia a dia é a planilha, editada pela
 // coordenação. Isso aqui é o retrato da semana de 03 a 07/08/2026, pra nunca
 // deixar a tela sem nenhuma trava se o Google cair.
@@ -113,7 +113,7 @@ export type BloqueioSemanalResolvido = {
 
 // dataISO: "AAAA-MM-DD" (data local, sem fuso) — mesmo formato usado nas telas
 // de agendamento. `fonte` permite injetar a grade vinda da planilha do Google
-// Sheets (ver /api/grade-semanal); sem ela, cai na grade fixa deste arquivo.
+// Sheets (ver /grade-fixa-semanal); sem ela, cai na grade fixa deste arquivo.
 export function bloqueiosSemanaisNaData(
   dataISO: string,
   fonte: AulaFixaSemanal[] = GRADE_SEMANAL_FIXA

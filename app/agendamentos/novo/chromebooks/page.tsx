@@ -174,6 +174,11 @@ function hojeISO() {
   return formatarDataISO(hoje)
 }
 
+function agoraHora() {
+  const agora = new Date()
+  return `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+}
+
 function gerarGrupoAgendamento() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID()
@@ -946,13 +951,23 @@ export default function NovoAgendamentoChromebooks() {
             <div>
               <label className="block font-medium mb-2">Início</label>
 
-              <input
-                type="time"
-                className="w-full border rounded-lg px-4 py-2"
-                value={inicio}
-                onChange={(e) => setInicio(e.target.value)}
-                required
-              />
+              <div className="flex gap-2">
+                <input
+                  type="time"
+                  className="w-full border rounded-lg px-4 py-2"
+                  value={inicio}
+                  onChange={(e) => setInicio(e.target.value)}
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setInicio(agoraHora())}
+                  className="shrink-0 px-4 py-2 rounded-lg border font-semibold text-sm hover:bg-gray-50 whitespace-nowrap"
+                >
+                  Agora
+                </button>
+              </div>
             </div>
 
             <div>

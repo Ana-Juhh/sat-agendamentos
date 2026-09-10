@@ -75,12 +75,13 @@ export function getHorariosSegmento(segmento: Segmento): PeriodoAula[] {
     .sort((a, b) => a.periodo - b.periodo)
 }
 
-// Confirmado com a coordenacao: turno da tarde 13:30 as 18:30, 6 aulas de
-// 50min corridas, sem intervalo.
+// Confirmado com a coordenacao: turno da tarde 13:10 as 18:30, com intervalo
+// entre a 3a e a 4a aula (15:40-16:00) -- o mesmo HORARIOS_AULA ja usado nas
+// telas de agendamento avulso de carrinhos/lab/maker.
 const HORARIOS_TARDE: PeriodoAula[] = [
-  { periodo: 1, inicio: '13:30', fim: '14:20', inicioMin: 810,  fimMin: 860,  confirmado: true },
-  { periodo: 2, inicio: '14:20', fim: '15:10', inicioMin: 860,  fimMin: 910,  confirmado: true },
-  { periodo: 3, inicio: '15:10', fim: '16:00', inicioMin: 910,  fimMin: 960,  confirmado: true },
+  { periodo: 1, inicio: '13:10', fim: '14:00', inicioMin: 790,  fimMin: 840,  confirmado: true },
+  { periodo: 2, inicio: '14:00', fim: '14:50', inicioMin: 840,  fimMin: 890,  confirmado: true },
+  { periodo: 3, inicio: '14:50', fim: '15:40', inicioMin: 890,  fimMin: 940,  confirmado: true },
   { periodo: 4, inicio: '16:00', fim: '16:50', inicioMin: 960,  fimMin: 1010, confirmado: true },
   { periodo: 5, inicio: '16:50', fim: '17:40', inicioMin: 1010, fimMin: 1060, confirmado: true },
   { periodo: 6, inicio: '17:40', fim: '18:30', inicioMin: 1060, fimMin: 1110, confirmado: true },

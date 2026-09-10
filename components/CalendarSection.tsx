@@ -46,15 +46,15 @@ export default function CalendarSection({ content }: CalendarSectionProps) {
     <section className="bg-white py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-16 lg:grid-cols-2">
-          <div className="rounded-3xl border-4 border-blue-400 bg-white p-8 shadow-2xl">
-            <div className="mb-6 flex gap-2">
+          <div className="rounded-3xl border-4 border-blue-400 bg-white p-4 sm:p-8 shadow-2xl">
+            <div className="mb-4 sm:mb-6 flex gap-2">
               <div className="h-3 w-3 rounded-full bg-red-400"></div>
               <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
               <div className="h-3 w-3 rounded-full bg-green-400"></div>
             </div>
 
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-xl font-bold">{content.month}</h3>
+            <div className="mb-4 sm:mb-6 flex items-center justify-between">
+              <h3 className="text-lg sm:text-xl font-bold">{content.month}</h3>
               <div className="flex gap-4">
                 <button type="button" className="text-gray-400 hover:text-gray-600" aria-label={content.previousMonthLabel}>
                   ←
@@ -65,19 +65,19 @@ export default function CalendarSection({ content }: CalendarSectionProps) {
               </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-7 gap-2">
+            <div className="mb-3 sm:mb-4 grid grid-cols-7 gap-1 sm:gap-2">
               {content.weekDays.map((day) => (
-                <div key={day} className="text-center text-sm text-gray-500">
+                <div key={day} className="text-center text-xs sm:text-sm text-gray-500">
                   {day}
                 </div>
               ))}
             </div>
 
-            <div className="mb-6 grid grid-cols-7 gap-2">
+            <div className="mb-4 sm:mb-6 grid grid-cols-7 gap-1 sm:gap-2">
               {[16, 17, 18, 19, 20, 21, 22].map((day) => (
                 <div
                   key={day}
-                  className={`cursor-pointer rounded-lg p-3 text-center ${
+                  className={`cursor-pointer rounded-lg p-1.5 sm:p-3 text-center text-sm sm:text-base ${
                     day === 19 ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
                   }`}
                 >
@@ -91,14 +91,14 @@ export default function CalendarSection({ content }: CalendarSectionProps) {
               <div className="absolute top-2 left-0 -ml-1.5 h-3 w-3 rounded-full bg-red-400"></div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {content.bookings.map((booking) => {
                 const tone = toneMap[booking.tone];
 
                 return (
                   <div
                     key={`${booking.teacher}-${booking.classGroup}`}
-                    className={`rounded-lg border-l-4 p-4 ${tone.border} ${tone.background}`}
+                    className={`rounded-lg border-l-4 p-3 sm:p-4 ${tone.border} ${tone.background}`}
                   >
                     <p className={`text-sm font-semibold ${tone.title}`}>
                       {booking.teacher} - {booking.classGroup}

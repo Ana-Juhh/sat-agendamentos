@@ -32,7 +32,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen overflow-hidden bg-white">
-      <div className="mx-auto flex w-full max-w-7xl flex-col justify-center gap-8 px-5 py-8 sm:px-6 md:gap-10 md:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col justify-center gap-4 px-5 py-8 sm:gap-8 sm:px-6 md:gap-10 md:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="relative order-1 flex w-full min-w-0 flex-1 items-center justify-center overflow-visible lg:order-2 lg:justify-end">
           <div className="relative flex w-full max-w-[18rem] flex-col items-center sm:max-w-[22rem] md:max-w-[26rem] lg:max-w-[min(34rem,38vw)] xl:max-w-[min(36rem,40vw)]">
             <div className="relative z-20 mb-[-0.5rem] max-w-[16rem] animate-[mascoteBubbleIn_900ms_ease-out_350ms_both] rounded-[1.5rem] border border-blue-100 bg-white px-5 py-3 text-center shadow-[0_18px_45px_rgba(37,99,235,0.12)] sm:max-w-[18rem]">
@@ -77,7 +77,7 @@ export default function LoginPage() {
             <span className="text-blue-600">aprender.</span>
           </h1>
 
-          <div className="mt-8 flex justify-center lg:justify-start">
+          <div className="mt-4 flex justify-center sm:mt-8 lg:justify-start">
             <GoogleSignInButton onClick={loginWithGoogle} />
           </div>
         </div>

@@ -10,11 +10,13 @@ import {
   ClipboardList,
   QrCode,
   Users,
+  BookOpen,
 } from "lucide-react";
 
 import { pb } from "@/lib/pocketbase";
 import {
   canCheckCarrinhos,
+  canViewKnowledgeBase,
   canManageEquipamentos,
   canManageUsers,
   canUseQrScanner,
@@ -67,6 +69,7 @@ export default function AdminPage() {
   const canSeeReports = canViewAdminReports(role);
   const canSeeScanner = canUseQrScanner(role);
   const canAccessUsers = canManageUsers(role);
+  const canAccessKnowledgeBase = canViewKnowledgeBase(role);
 
   if (!isAuthenticated || !shouldShowAdminArea(role)) {
     return null;
@@ -139,6 +142,14 @@ export default function AdminPage() {
               title="Usuários"
               icon={<Users size={48} />}
               href="/admin/usuarios"
+            />
+          )}
+
+          {canAccessKnowledgeBase && (
+            <ServiceCard
+              title="Wiki de TI"
+              icon={<BookOpen size={48} />}
+              href="/admin/base-conhecimento"
             />
           )}
         </div>

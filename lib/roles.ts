@@ -98,6 +98,20 @@ export function canManageUsers(role?: string | null) {
 }
 
 /**
+ * Base de Conhecimento
+ *
+ * Mantemos essas permissões separadas das demais áreas para que os perfis
+ * futuros da Central de TI possam evoluir sem mudar regras já existentes.
+ */
+export function canViewKnowledgeBase(role?: string | null) {
+  return role === "admin" || role === "superadmin";
+}
+
+export function canManageKnowledgeBase(role?: string | null) {
+  return isSuperAdmin(role);
+}
+
+/**
  * Exibir área administrativa
  */
 export function shouldShowAdminArea(role?: string | null) {

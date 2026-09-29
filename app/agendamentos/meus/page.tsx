@@ -29,6 +29,7 @@ type BaseAgendamento = {
   id: string
   usuario: string
   chromebooks?: string[]
+  chromebooks_devolvidos?: string[]
   data: string
   inicio: number
   fim: number
@@ -40,6 +41,7 @@ type BaseAgendamento = {
   tipo?: 'chromebooks' | 'lab' | 'maker' | 'carrinhos'
   carrinho?: string
   grupo_agendamento?: string
+  usuario_nome?: string
   expand?: {
     chromebooks?: Chromebook[]
     usuario?: User
@@ -113,6 +115,18 @@ function formatarDataBR(dataISO: string) {
 
   const [ano, mes, dia] = iso.split('-')
   return `${dia}/${mes}/${ano}`
+}
+
+// Carrinho não tem controle de devolução: depois que o horário acaba, sai da lista.
+function carrinhoJaPassou(agendamento: BaseAgendamento) {
+  if (agendamento.tipo !== 'carrinhos') return false
+
+  const dataAgendamento = normalizarDataISO(agendamento.data)
+  const hoje = hojeISO()
+
+  if (dataAgendamento < hoje) return true
+
+  return dataAgendamento === hoje && minutosAgora() > Number(agendamento.fim || 0)
 }
 
 function calcularStatusAutomatico(agendamento: Agendamento): StatusEntrega {
@@ -197,8 +211,7 @@ function nomeTipoAgendamento(agendamento: Agendamento, totalDias: number) {
       : 'Carrinho de Chromebook'
   }
 
-  const chromes = agendamento.expand?.chromebooks ?? []
-  const quantidade = chromes.length || agendamento.chromebooks?.length || 0
+  const quantidade = idsChromebooksPendentes(agendamento).length
 
   if (totalDias > 1) {
     return `${quantidade} Chromebook(s) — ${totalDias} dias`
@@ -207,10 +220,17 @@ function nomeTipoAgendamento(agendamento: Agendamento, totalDias: number) {
   return `${quantidade} Chromebook(s)`
 }
 
+// Chromebooks do agendamento que ainda não foram devolvidos.
+function idsChromebooksPendentes(agendamento: Agendamento) {
+  const devolvidos = new Set(agendamento.chromebooks_devolvidos ?? [])
+  return (agendamento.chromebooks ?? []).filter((id) => !devolvidos.has(id))
+}
+
 function nomeResponsavel(agendamento: Agendamento) {
   return (
     agendamento.expand?.usuario?.name ||
     agendamento.expand?.usuario?.nome ||
+    agendamento.usuario_nome ||
     agendamento.expand?.usuario?.email ||
     'Usuário sem nome'
   )
@@ -227,13 +247,17 @@ function nomeTurmaClasse(agendamento: Agendamento) {
 }
 
 function listaCodigosChromebooks(agendamento: Agendamento) {
+  const pendentes = idsChromebooksPendentes(agendamento)
   const chromes = agendamento.expand?.chromebooks ?? []
 
   if (chromes.length > 0) {
-    return chromes.map((chromebook) => chromebook.codigo ?? chromebook.id).join(', ')
+    return chromes
+      .filter((chromebook) => pendentes.includes(chromebook.id))
+      .map((chromebook) => chromebook.codigo ?? chromebook.id)
+      .join(', ')
   }
 
-  return (agendamento.chromebooks ?? []).join(', ')
+  return pendentes.join(', ')
 }
 
 function periodoGrupo(grupo: GrupoAgendamento) {
@@ -353,7 +377,7 @@ function MeusAgendamentosContent() {
           origem: AG_COLLECTION as typeof AG_COLLECTION,
         })),
 
-        ...espacos.map((item) => ({
+        ...espacos.filter((item) => !carrinhoJaPassou(item)).map((item) => ({
           ...item,
           origem: ESPACOS_COLLECTION as typeof ESPACOS_COLLECTION,
         })),
@@ -663,6 +687,14 @@ function MeusAgendamentosContent() {
                               <p className="text-sm text-gray-600 break-words">
                                 <strong>Chromebooks:</strong>{' '}
                                 {listaCodigos || 'Não informado'}
+                              </p>
+                            ) : null}
+
+                            {isChromebooks &&
+                            (agendamento.chromebooks_devolvidos?.length ?? 0) > 0 ? (
+                              <p className="text-xs text-green-700">
+                                {agendamento.chromebooks_devolvidos?.length} de{' '}
+                                {agendamento.chromebooks?.length ?? 0} já devolvido(s)
                               </p>
                             ) : null}
 

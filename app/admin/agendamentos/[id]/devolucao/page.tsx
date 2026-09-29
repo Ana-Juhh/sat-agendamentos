@@ -34,6 +34,7 @@ type Agendamento = {
   turma?: string;
   classe?: string;
   observacoes?: string;
+  usuario_nome?: string;
   expand?: {
     usuario?: Usuario;
     chromebooks?: Chromebook[];
@@ -155,11 +156,34 @@ export default function DevolucaoAgendamentoPage() {
     return agendamento?.expand?.chromebooks ?? [];
   }, [agendamento]);
 
+  // Os que já estavam salvos como devolvidos somem da lista principal;
+  // só os pendentes aparecem pra marcar.
+  const idsJaDevolvidos = useMemo(() => {
+    return new Set(agendamento?.chromebooks_devolvidos ?? []);
+  }, [agendamento]);
+
+  const chromesPendentes = useMemo(() => {
+    return chromesReservados.filter((c) => !idsJaDevolvidos.has(c.id));
+  }, [chromesReservados, idsJaDevolvidos]);
+
+  const chromesJaDevolvidos = useMemo(() => {
+    return chromesReservados.filter((c) => idsJaDevolvidos.has(c.id));
+  }, [chromesReservados, idsJaDevolvidos]);
+
+  const marcadosAgora = devolvidosSelecionados.filter(
+    (chromeId) => !idsJaDevolvidos.has(chromeId)
+  ).length;
+
+  const aindaFaltam = chromesReservados.filter(
+    (c) => !devolvidosSelecionados.includes(c.id)
+  ).length;
+
   const nomeUsuario = useMemo(() => {
     if (!agendamento) return "-";
 
     return (
       agendamento.expand?.usuario?.name ||
+      agendamento.usuario_nome ||
       agendamento.expand?.usuario?.email ||
       "Usuário sem nome"
     );
@@ -270,11 +294,17 @@ export default function DevolucaoAgendamentoPage() {
 
             <div>
               <h2 className="text-lg font-semibold mb-3">
-                Marque os Chromebooks que já foram devolvidos
+                Chromebooks pendentes ({chromesPendentes.length})
               </h2>
 
+              {chromesPendentes.length === 0 ? (
+                <p className="rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-800">
+                  Todos os Chromebooks deste agendamento já foram devolvidos.
+                </p>
+              ) : null}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {chromesReservados.map((chromebook) => {
+                {chromesPendentes.map((chromebook) => {
                   const marcado = devolvidosSelecionados.includes(chromebook.id);
 
                   return (
@@ -315,20 +345,59 @@ export default function DevolucaoAgendamentoPage() {
                   );
                 })}
               </div>
+
+              {chromesJaDevolvidos.length > 0 ? (
+                <details className="mt-4 rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
+                  <summary className="cursor-pointer font-semibold">
+                    Já devolvidos ({chromesJaDevolvidos.length})
+                  </summary>
+
+                  <p className="mt-2 text-gray-500">
+                    Marcou errado? Clique no Chromebook para voltar ele para
+                    pendente e salve.
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {chromesJaDevolvidos.map((chromebook) => {
+                      const desfeito = !devolvidosSelecionados.includes(
+                        chromebook.id
+                      );
+
+                      return (
+                        <button
+                          key={chromebook.id}
+                          type="button"
+                          onClick={() => toggleDevolvido(chromebook.id)}
+                          className={`rounded-full px-3 py-1 font-semibold transition ${
+                            desfeito
+                              ? "bg-slate-600 text-white line-through"
+                              : "bg-green-600 text-white hover:bg-green-700"
+                          }`}
+                        >
+                          {chromebook.codigo || chromebook.id}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </details>
+              ) : null}
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700">
               <p>
-                <b>Total reservados:</b> {agendamento.chromebooks.length}
+                <b>Total reservados:</b> {chromesReservados.length}
               </p>
 
               <p>
-                <b>Devolvidos agora:</b> {devolvidosSelecionados.length}
+                <b>Já devolvidos antes:</b> {chromesJaDevolvidos.length}
               </p>
 
               <p>
-                <b>Pendentes:</b>{" "}
-                {agendamento.chromebooks.length - devolvidosSelecionados.length}
+                <b>Marcados agora:</b> {marcadosAgora}
+              </p>
+
+              <p>
+                <b>Ainda faltam devolver:</b> {aindaFaltam}
               </p>
             </div>
 

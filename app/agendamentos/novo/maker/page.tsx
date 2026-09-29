@@ -113,6 +113,7 @@ type Agendamento = {
   tipo?: string
   status?: string
   status_entrega?: string
+  usuario_nome?: string
   expand?: { usuario?: { name?: string; nome?: string; email?: string } }
 }
 
@@ -121,6 +122,7 @@ function ItemAgendamentoMaker({ ag }: { ag: Agendamento }) {
   const usuario =
     ag.expand?.usuario?.name ||
     ag.expand?.usuario?.nome ||
+    ag.usuario_nome ||
     ag.expand?.usuario?.email ||
     'Responsável não informado'
 

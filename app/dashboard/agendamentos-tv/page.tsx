@@ -118,19 +118,30 @@ function turmaClasse(registro: Registro) {
   return `${registro.turma} ${registro.classe}`;
 }
 
+// Chromebooks do agendamento que ainda não foram devolvidos.
+function idsChromebooksPendentes(registro: Registro): string[] {
+  const devolvidos = new Set<string>(registro.chromebooks_devolvidos ?? []);
+  const ids: string[] = Array.isArray(registro.chromebooks)
+    ? registro.chromebooks
+    : [];
+
+  return ids.filter((id) => !devolvidos.has(id));
+}
+
 function codigosChromebooks(registro: Registro) {
+  const pendentes = new Set(idsChromebooksPendentes(registro));
+
   const codigosExpand =
     registro.expand?.chromebooks
-      ?.map((item: Registro) => item.codigo || item.nome || item.name || item.id)
+      ?.filter((item: Registro) => pendentes.has(item.id))
+      .map((item: Registro) => item.codigo || item.nome || item.name || item.id)
       .filter(Boolean) ?? [];
 
   if (codigosExpand.length > 0) {
     return codigosExpand.join(", ");
   }
 
-  return Array.isArray(registro.chromebooks)
-    ? registro.chromebooks.join(", ")
-    : "";
+  return Array.from(pendentes).join(", ");
 }
 
 function nomeEspaco(tipo?: string) {
@@ -148,14 +159,17 @@ function origemEspaco(tipo?: string): OrigemAgendamento {
 }
 
 function normalizarAgendamentoChromebook(item: Registro): AgendamentoTV {
-  const quantidade =
-    item.expand?.chromebooks?.length || item.chromebooks?.length || 0;
+  const quantidade = idsChromebooksPendentes(item).length;
+  const totalDevolvidos = item.chromebooks_devolvidos?.length || 0;
 
   return {
     id: `chromebooks-${item.id}`,
     origem: "chromebooks",
     titulo: "Chromebooks",
-    recurso: `${quantidade || "-"} Chromebook(s)`,
+    recurso:
+      totalDevolvidos > 0
+        ? `${quantidade} Chromebook(s) — ${totalDevolvidos} já devolvido(s)`
+        : `${quantidade || "-"} Chromebook(s)`,
     data: getDateKey(item.data),
     inicio: Number(item.inicio || 0),
     fim: Number(item.fim || 0),
@@ -465,11 +479,18 @@ export default function AgendamentosTvPage() {
 
   const safeNow = now || new Date();
 
-  const agendamentosUnicos = useMemo(() => {
+  const agendamentosDeduplicados = useMemo(() => {
     return Array.from(
       new Map(agendamentos.map((item) => [item.id, item])).values()
     );
   }, [agendamentos]);
+
+  // Carrinho não tem controle de devolução: quando o horário acaba, sai da tela.
+  const agendamentosUnicos = agendamentosDeduplicados.filter(
+    (item) =>
+      item.origem !== "carrinho" ||
+      getStatusAgendamento(item, safeNow).variant !== "done"
+  );
 
   const chromebooks = agendamentosUnicos.filter(
     (item) => item.origem === "chromebooks"

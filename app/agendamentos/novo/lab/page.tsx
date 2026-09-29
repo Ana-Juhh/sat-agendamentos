@@ -250,6 +250,7 @@ export default function NovoAgendamentoLab() {
     turma?: string
     classe?: string
     observacoes?: string
+    usuario_nome?: string
     expand?: {
       usuario?: {
         name?: string
@@ -717,6 +718,7 @@ export default function NovoAgendamentoLab() {
                         const usuario =
                           agendamento.expand?.usuario?.name ||
                           agendamento.expand?.usuario?.nome ||
+                          agendamento.usuario_nome ||
                           agendamento.expand?.usuario?.email ||
                           'Responsável não informado'
 

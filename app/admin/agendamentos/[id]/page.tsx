@@ -31,6 +31,7 @@ type Agendamento = {
   turma?: string
   classe?: string
   observacoes?: string
+  usuario_nome?: string
   expand?: {
     usuario?: Usuario
     chromebooks?: Chromebook[]
@@ -325,7 +326,7 @@ export default function EditarAgendamentoAdmin() {
             <div className="text-sm text-gray-600">
               <div>
                 <b>Professor(a):</b>{' '}
-                {ag.expand?.usuario?.name || ag.expand?.usuario?.email || 'Usuário sem nome'}
+                {ag.expand?.usuario?.name || ag.usuario_nome || ag.expand?.usuario?.email || 'Usuário sem nome'}
               </div>
 
               <div>

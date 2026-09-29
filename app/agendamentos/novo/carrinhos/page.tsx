@@ -135,6 +135,7 @@ type AgendamentoCarrinho = {
   classe?: string
   disciplina?: string
   observacoes?: string
+  usuario_nome?: string
   expand?: { usuario?: { name?: string; nome?: string; email?: string } }
 }
 
@@ -144,6 +145,7 @@ function ItemAgendamento({ ag }: { ag: AgendamentoCarrinho }) {
   const usuario =
     ag.expand?.usuario?.name ||
     ag.expand?.usuario?.nome ||
+    ag.usuario_nome ||
     ag.expand?.usuario?.email ||
     'Responsavel nao informado'
   const subtitulo = ehGradeFixaSemanal

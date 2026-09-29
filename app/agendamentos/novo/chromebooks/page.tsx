@@ -21,6 +21,7 @@ type ReservaChromebook = {
   inicio?: number
   fim?: number
   chromebooks?: string[]
+  chromebooks_devolvidos?: string[]
   grupo_agendamento?: string
   expand?: {
     chromebooks?: Chromebook[]
@@ -394,8 +395,11 @@ export default function NovoAgendamentoChromebooks() {
   function extrairIdsChromebooksReserva(reserva: ReservaChromebook) {
     const idsExpand = reserva.expand?.chromebooks?.map((c) => c.id) ?? []
     const idsRaw = reserva.chromebooks ?? []
+    const ids = idsExpand.length ? idsExpand : idsRaw
 
-    return idsExpand.length ? idsExpand : idsRaw
+    // Os que já foram devolvidos (devolução parcial) ficam livres de novo.
+    const devolvidos = new Set(reserva.chromebooks_devolvidos ?? [])
+    return ids.filter((id) => !devolvidos.has(id))
   }
 
   async function criarEventoGoogleAgenda(params: {

@@ -45,6 +45,7 @@ type AgendaRecord = {
   tipo?: TipoAgendamento
   chromebooks?: string[]
   grupo_agendamento?: string
+  usuario_nome?: string
   expand?: {
     usuario?: User
     chromebooks?: Chromebook[]
@@ -94,6 +95,7 @@ function nomeProfessor(record: AgendaRecord) {
   return (
     record.expand?.usuario?.name ||
     record.expand?.usuario?.nome ||
+    record.usuario_nome ||
     record.expand?.usuario?.email ||
     'Professor(a)'
   )

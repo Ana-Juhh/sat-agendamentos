@@ -14,6 +14,8 @@
 // for marcada como "devolvido" (ou "cancelado") — não quando o horário
 // original passar. Combinação de "status = ativo" + "status_entrega !=
 // devolvido" já é exatamente isso, igual ao que o front-end já assumia.
+// Na devolução parcial, os chromebooks já listados em "chromebooks_devolvidos"
+// também ficam livres, mesmo com o resto da reserva ainda em uso.
 onRecordCreateRequest((e) => {
   const record = e.record
 
@@ -34,13 +36,13 @@ onRecordCreateRequest((e) => {
       const dataSeguinte = proximoDia.toISOString().slice(0, 10)
 
       for (const chromebookId of chromebookIds) {
-        const conflito = e.app.findRecordsByFilter(
+        const reservas = e.app.findRecordsByFilter(
           "agendamentos_tmp",
           "chromebooks.id ?= {:chromebookId} && data >= {:dataInicio} && data < {:dataFim} && " +
             "status = \"ativo\" && status_entrega != \"devolvido\" && " +
             "inicio < {:fim} && fim > {:inicio}",
           "",
-          1,
+          0,
           0,
           {
             chromebookId: chromebookId,
@@ -50,6 +52,11 @@ onRecordCreateRequest((e) => {
             fim: fim,
           }
         )
+
+        const conflito = reservas.filter((reserva) => {
+          const devolvidos = Array.from(reserva.getStringSlice("chromebooks_devolvidos"))
+          return !devolvidos.includes(chromebookId)
+        })
 
         if (conflito.length > 0) {
           throw new BadRequestError(
@@ -62,3 +69,50 @@ onRecordCreateRequest((e) => {
 
   e.next()
 }, "agendamentos_tmp")
+
+// Grava o nome de quem agendou no proprio agendamento (campo "usuario_nome").
+// A collection "users" so e legivel pelo superadmin, entao o expand de
+// "usuario" volta vazio pros outros cargos e o nome nao aparecia nas telas.
+// O nome e sempre calculado aqui no servidor, a partir do "usuario" salvo;
+// o valor enviado pelo navegador e ignorado.
+// Obs.: o PocketBase roda cada handler isolado (nao enxerga funcoes de fora),
+// por isso a mesma logica aparece no create e no update.
+onRecordCreateRequest((e) => {
+  const usuarioId = e.record.getString("usuario")
+  let nome = ""
+
+  if (usuarioId) {
+    try {
+      const usuario = e.app.findRecordById("users", usuarioId)
+      nome =
+        usuario.getString("name").trim() ||
+        usuario.getString("nome").trim() ||
+        usuario.getString("email").trim()
+    } catch (_) {
+      nome = ""
+    }
+  }
+
+  e.record.set("usuario_nome", nome)
+  e.next()
+}, "agendamentos_tmp", "agendamentos_espacos")
+
+onRecordUpdateRequest((e) => {
+  const usuarioId = e.record.getString("usuario")
+  let nome = ""
+
+  if (usuarioId) {
+    try {
+      const usuario = e.app.findRecordById("users", usuarioId)
+      nome =
+        usuario.getString("name").trim() ||
+        usuario.getString("nome").trim() ||
+        usuario.getString("email").trim()
+    } catch (_) {
+      nome = ""
+    }
+  }
+
+  e.record.set("usuario_nome", nome)
+  e.next()
+}, "agendamentos_tmp", "agendamentos_espacos")

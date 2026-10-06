@@ -393,10 +393,18 @@ export default function AgendamentosTvPage() {
   }, []);
 
   useEffect(() => {
-    if (secondsRemaining <= 0) {
-      irParaTarefasAgora();
-    }
-  }, [secondsRemaining, irParaTarefasAgora]);
+    if (secondsRemaining > 0 || hasNavigatedRef.current) return;
+
+    hasNavigatedRef.current = true;
+    setIsLeaving(true);
+    const timer = window.setTimeout(() => {
+      // Visit the existing GCC TV in the same tab; it then returns to SAT.
+      // The manual "Ir para tarefas" button keeps its existing destination.
+      window.location.replace("https://gcc.colegiosatelite.cloud/?tv=sat");
+    }, 520);
+
+    return () => window.clearTimeout(timer);
+  }, [secondsRemaining]);
 
   useEffect(() => {
     async function carregarAgendamentos() {

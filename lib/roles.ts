@@ -104,7 +104,7 @@ export function canManageUsers(role?: string | null) {
  * futuros da Central de TI possam evoluir sem mudar regras já existentes.
  */
 export function canViewKnowledgeBase(role?: string | null) {
-  return role === "admin" || role === "superadmin";
+  return isAdmin(role);
 }
 
 export function canManageKnowledgeBase(role?: string | null) {

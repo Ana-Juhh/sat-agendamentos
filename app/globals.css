@@ -517,3 +517,26 @@ html[data-theme='dark'] .admin-users-page .admin-users-role-badge--user {
     font-size: 0.88rem;
   }
 }
+
+/* Wiki de TI: animação leve da ilustração dos banners */
+@keyframes wiki-flutuar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.wiki-flutuar {
+  animation: wiki-flutuar 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-flutuar { animation: none; }
+}
+
+/* Em modo escuro, o ícone dentro da janela branca continua escuro. */
+html[data-theme='dark'] .wiki-flutuar svg {
+  color: #4f46e5;
+}
+
+html[data-theme='dark'] .bg-violet-50 {
+  background-color: rgba(139, 92, 246, 0.2) !important;
+}

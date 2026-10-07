@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  BarChart3,
   BookOpen,
   ClipboardList,
   Folder,
@@ -261,9 +262,14 @@ export default function BaseConhecimentoPage() {
             <p className="mt-2 text-slate-600">Organize procedimentos, tutoriais e materiais de onboarding da equipe de TI.</p>
           </div>
           {canManage && (
-            <button onClick={openNewForm} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700">
-              <Plus size={19} /> Nova categoria
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/admin/base-conhecimento/painel" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-700 shadow-sm transition hover:border-blue-300">
+                <BarChart3 size={19} /> Acompanhar estagiários
+              </Link>
+              <button onClick={openNewForm} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700">
+                <Plus size={19} /> Nova categoria
+              </button>
+            </div>
           )}
         </div>
 

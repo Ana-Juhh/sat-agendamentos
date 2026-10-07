@@ -12,6 +12,7 @@ import {
   Users,
   LayoutDashboard,
   MonitorCheck,
+  BookOpen,
 } from "lucide-react";
 
 import { pb } from "@/lib/pocketbase";
@@ -21,6 +22,7 @@ import {
   canUseQrScanner,
   canViewAdminReports,
   canViewAllAgendamentos,
+  canViewKnowledgeBase,
   isSuperAdmin,
 } from "@/lib/roles";
 import ServiceCard from "@/components/ServiceCard";
@@ -53,6 +55,7 @@ export default function Dashboard() {
   const canSeeReports = canViewAdminReports(role);
   const canSeeScanner = canUseQrScanner(role);
   const canManageUsers = isSuperAdmin(role);
+  const canAccessKnowledgeBase = canViewKnowledgeBase(role);
 
   const canSeeTvDashboards =
     canManageAgenda || canSeeReports || canManageUsers;
@@ -138,6 +141,14 @@ export default function Dashboard() {
               title="Usuários"
               icon={<Users size={48} />}
               href="/admin/usuarios"
+            />
+          )}
+
+          {canAccessKnowledgeBase && (
+            <ServiceCard
+              title="Wiki de TI"
+              icon={<BookOpen size={48} />}
+              href="/admin/base-conhecimento"
             />
           )}
         </div>

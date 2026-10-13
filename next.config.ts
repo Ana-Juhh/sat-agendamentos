@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_VERSAO: VERSAO,
   },
+  // A VPS tem pouca memória: a compilação usa 1 processador e pula a checagem
+  // de tipos (que é a parte mais pesada). Por isso, rode `npx tsc --noEmit`
+  // no computador antes de subir, pra não mandar erro de tipo pro servidor.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  experimental: {
+    cpus: 1,
+  },
 };
 
 export default nextConfig;

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -13,6 +14,7 @@ import {
   LoaderCircle,
   MonitorCheck,
   PackageCheck,
+  Undo2,
   ShoppingCart,
   Wrench,
 } from "lucide-react";
@@ -20,6 +22,7 @@ import {
 import { AG_COLLECTION } from "@/lib/agendamentoConfig";
 import { ESPACOS_COLLECTION } from "@/lib/espacoConfig";
 import { pb } from "@/lib/pocketbase";
+import { canViewAllAgendamentos } from "@/lib/roles";
 import { getGccTvUrl } from "@/lib/tvRotacao";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,6 +32,8 @@ type OrigemAgendamento = "chromebooks" | "maker" | "lab" | "carrinho" | "espaco"
 
 type AgendamentoTV = {
   id: string;
+  // id do registro no PocketBase (o "id" acima leva prefixo pra não colidir).
+  registroId: string;
   origem: OrigemAgendamento;
   titulo: string;
   recurso: string;
@@ -165,6 +170,7 @@ function normalizarAgendamentoChromebook(item: Registro): AgendamentoTV {
 
   return {
     id: `chromebooks-${item.id}`,
+    registroId: item.id,
     origem: "chromebooks",
     titulo: "Chromebooks",
     recurso:
@@ -189,6 +195,7 @@ function normalizarAgendamentoEspaco(item: Registro): AgendamentoTV {
 
   return {
     id: `espaco-${item.id}`,
+    registroId: item.id,
     origem,
     titulo,
     recurso,
@@ -368,6 +375,16 @@ export default function AgendamentosTvPage() {
   const [secondsRemaining, setSecondsRemaining] = useState(REFRESH_SECONDS);
   const [loading, setLoading] = useState(true);
   const [agendamentos, setAgendamentos] = useState<AgendamentoTV[]>([]);
+  const [podeDevolver, setPodeDevolver] = useState(false);
+
+  useEffect(() => {
+    const atualizar = () => {
+      const model = pb.authStore.model as { role?: string } | null;
+      setPodeDevolver(pb.authStore.isValid && canViewAllAgendamentos(model?.role));
+    };
+    atualizar();
+    return pb.authStore.onChange(atualizar);
+  }, []);
 
   const irParaTarefasAgora = useCallback(() => {
     if (hasNavigatedRef.current) return;
@@ -599,7 +616,7 @@ export default function AgendamentosTvPage() {
                 className="h-full min-h-0 pr-2"
               >
                 {atrasados.map((item) => (
-                  <AtrasoCard key={item.id} item={item} />
+                  <AtrasoCard key={item.id} item={item} podeDevolver={podeDevolver} />
                 ))}
               </AutoScrollArea>
             ) : (
@@ -656,6 +673,7 @@ export default function AgendamentosTvPage() {
               resetKey={chromebooksKey}
               now={safeNow}
               loading={loading}
+              podeDevolver={podeDevolver}
               emptyText="Nenhum agendamento de Chromebook."
             />
 
@@ -667,6 +685,7 @@ export default function AgendamentosTvPage() {
               resetKey={carrinhosKey}
               now={safeNow}
               loading={loading}
+              podeDevolver={podeDevolver}
               emptyText="Nenhum agendamento de Carrinho."
             />
 
@@ -678,6 +697,7 @@ export default function AgendamentosTvPage() {
               resetKey={salasKey}
               now={safeNow}
               loading={loading}
+              podeDevolver={podeDevolver}
               emptyText="Nenhum agendamento da Sala Maker ou Lab. de Ciências."
             />
           </section>
@@ -812,6 +832,7 @@ function ResourceColumn({
   now,
   loading,
   emptyText,
+  podeDevolver,
 }: {
   title: string;
   badge: string;
@@ -821,6 +842,7 @@ function ResourceColumn({
   now: Date;
   loading: boolean;
   emptyText: string;
+  podeDevolver: boolean;
 }) {
   return (
     <div className="flex min-h-0 flex-col space-y-4">
@@ -839,7 +861,7 @@ function ResourceColumn({
           className="min-h-0 flex-1 pr-2"
         >
           {items.map((item) => (
-            <AgendamentoCard key={item.id} item={item} now={now} />
+            <AgendamentoCard key={item.id} item={item} now={now} podeDevolver={podeDevolver} />
           ))}
         </AutoScrollArea>
       ) : (
@@ -880,7 +902,25 @@ function SectionHeader({
   );
 }
 
-function AtrasoCard({ item }: { item: AgendamentoTV }) {
+function linkDevolucao(item: AgendamentoTV, podeDevolver: boolean) {
+  if (!podeDevolver || item.origem !== "chromebooks" || item.statusEntrega === "devolvido") return null;
+  return `/admin/agendamentos/${item.registroId}/devolucao?returnTo=${encodeURIComponent("/dashboard/agendamentos-tv")}`;
+}
+
+function BotaoDevolucao({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/20"
+    >
+      <Undo2 className="h-4 w-4" /> Registrar devolução
+    </Link>
+  );
+}
+
+function AtrasoCard({ item, podeDevolver }: { item: AgendamentoTV; podeDevolver: boolean }) {
+  const devolucao = linkDevolucao(item, podeDevolver);
+
   return (
     <article className="rounded-[24px] border border-rose-400/35 bg-rose-500/12 p-4 shadow-[0_18px_36px_rgba(244,63,94,0.10)]">
       <div className="mb-3 flex items-center gap-3 text-rose-200">
@@ -904,6 +944,8 @@ function AtrasoCard({ item }: { item: AgendamentoTV }) {
       <p className="mt-1 text-sm text-slate-300">
         <strong className="text-white">Turma:</strong> {item.turma}
       </p>
+
+      {devolucao ? <BotaoDevolucao href={devolucao} /> : null}
     </article>
   );
 }
@@ -911,11 +953,14 @@ function AtrasoCard({ item }: { item: AgendamentoTV }) {
 function AgendamentoCard({
   item,
   now,
+  podeDevolver,
 }: {
   item: AgendamentoTV;
   now: Date;
+  podeDevolver: boolean;
 }) {
   const status = getStatusAgendamento(item, now);
+  const devolucao = linkDevolucao(item, podeDevolver);
 
   const variantClass =
     status.variant === "late"
@@ -978,6 +1023,8 @@ function AgendamentoCard({
 
         {item.detalhes ? <InfoRow label="Detalhes" value={item.detalhes} /> : null}
       </div>
+
+      {devolucao ? <BotaoDevolucao href={devolucao} /> : null}
     </article>
   );
 }

@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 // Recarrega o site quando sai uma versão nova, pra ninguém ficar com telas
 // antigas (ex.: opção que já foi removida) por ter deixado a aba aberta.
 //
-// Confere /api/versao ao abrir, a cada 5 minutos e quando a aba volta a ficar
-// ativa. Pra não apagar um formulário pela metade, só recarrega:
+// Confere /versao (fora de /api/, que no servidor vai pro PocketBase) ao
+// abrir, a cada 5 minutos e quando a aba volta a ficar ativa. Pra não apagar um formulário pela metade, só recarrega:
 // - logo ao abrir o site (ninguém digitou nada ainda);
 // - quando a pessoa troca de página; ou
 // - quando volta pra aba depois de ter saído dela.
@@ -29,7 +29,7 @@ function recarregarPara(versao: string) {
 
 async function versaoDoServidor() {
   try {
-    const resposta = await fetch("/api/versao", { cache: "no-store" });
+    const resposta = await fetch("/versao", { cache: "no-store" });
     if (!resposta.ok) return null;
     const dados = (await resposta.json()) as { versao?: string };
     return dados.versao || null;

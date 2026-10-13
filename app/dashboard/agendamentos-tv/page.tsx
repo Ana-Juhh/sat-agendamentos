@@ -9,6 +9,7 @@ import {
   Beaker,
   CalendarDays,
   ChevronLeft,
+  ChevronRight,
   Clock3,
   Laptop,
   LoaderCircle,
@@ -709,6 +710,14 @@ export default function AgendamentosTvPage() {
         label="Ir para tarefas"
         onClick={irParaTarefasAgora}
         icon={<ChevronLeft className="h-7 w-7" />}
+      />
+
+      {/* Zera a contagem: a troca automática leva pro GCC (ou pras tarefas, se o GCC estiver desligado). */}
+      <HoverPageJumpButton
+        side="right"
+        label="Pular para o GCC"
+        onClick={() => setSecondsRemaining(0)}
+        icon={<ChevronRight className="h-7 w-7" />}
       />
     </main>
   );

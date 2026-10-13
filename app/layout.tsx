@@ -1,4 +1,5 @@
 import './globals.css';
+import RenovarLogin from '@/components/RenovarLogin';
 
 export const metadata = {
   title: 'SAT Agendamentos',
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" suppressHydrationWarning data-theme="light">
       <body className="bg-white text-gray-900">
+        <RenovarLogin />
         {children}
       </body>
     </html>
